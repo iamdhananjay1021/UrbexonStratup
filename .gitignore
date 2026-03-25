@@ -1,0 +1,52 @@
+# ======================================
+# GLOBAL (ENTIRE PROJECT)
+# ======================================
+
+node_modules/
+.env
+.env.*
+logs/
+*.log
+
+.DS_Store
+Thumbs.db
+
+.vscode/
+.idea/
+
+# ======================================
+# ADMIN (React / Vite)
+# ======================================
+
+admin/node_modules/
+admin/dist/
+admin/build/
+
+admin/.env
+admin/.env.*
+admin/.vite/
+
+# ======================================
+# CLIENT (React / Vite)
+# ======================================
+
+client/node_modules/
+client/dist/
+client/build/
+
+client/.env
+client/.env.*
+client/.vite/
+
+# ======================================
+# BACKEND (Node / Express)
+# ======================================
+
+backend/node_modules/
+backend/dist/
+backend/build/
+
+backend/.env
+backend/.env.*
+
+coverage/

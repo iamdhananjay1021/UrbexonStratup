@@ -1,0 +1,91 @@
+@import "tailwindcss";
+
+:root {
+    --uk-primary: #6366f1;
+    --uk-primary-dark: #4f46e5;
+    --uk-accent: #f97316;
+    --uk-accent-light: #fed7aa;
+    --uk-bg: #f8f7ff;
+    --uk-surface: #ffffff;
+    --uk-text: #1e1b4b;
+    --uk-muted: #6b7280;
+    --uk-border: #e5e7f0;
+}
+
+* {
+    box-sizing: border-box;
+}
+
+body {
+    background-color: var(--uk-bg);
+    color: var(--uk-text);
+    font-family: 'DM Sans', system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+}
+
+.uk-font-display {
+    font-family: 'Syne', sans-serif;
+}
+
+.uk-font-body {
+    font-family: 'DM Sans', sans-serif;
+}
+
+/* Scrollbar */
+.scrollbar-hide::-webkit-scrollbar {
+    display: none;
+}
+
+.scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+}
+
+/* Custom scrollbar for desktop */
+::-webkit-scrollbar {
+    width: 6px;
+}
+
+::-webkit-scrollbar-track {
+    background: #f1f1f1;
+}
+
+::-webkit-scrollbar-thumb {
+    background: #c7d2fe;
+    border-radius: 10px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: #6366f1;
+}
+
+/* Input styles */
+.input-uk {
+    @apply w-full bg-white border border-[#e5e7f0] rounded-xl px-4 py-3 text-[#1e1b4b] placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:border-transparent transition-all duration-200;
+}
+
+/* Gradient text */
+.uk-gradient-text {
+    background: linear-gradient(135deg, #6366f1, #f97316);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+
+/* Page load animation */
+@keyframes uk-fadein {
+    from {
+        opacity: 0;
+        transform: translateY(12px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.uk-fadein {
+    animation: uk-fadein 0.4s ease forwards;
+}

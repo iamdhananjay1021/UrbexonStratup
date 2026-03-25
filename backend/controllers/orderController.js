@@ -1,0 +1,593 @@
+/**
+ * orderController.js — Production Grade
+ * ✅ Backend COD distance validation (security — cannot be bypassed from frontend)
+ * ✅ Refund via Razorpay API
+ * ✅ Payment logs on every event
+ * ✅ Fraud detection
+ * ✅ MRP saved in items for invoice discount display
+ * ✅ getAllOrders — paginated (page + limit query params)
+ * ❌ No return system
+ * ⏸️ Shiprocket — commented, enable when needed
+ */
+
+import Razorpay from "razorpay";
+import Order, { generateInvoiceNumber } from "../models/Order.js";
+import Product from "../models/Product.js";
+import { sendEmail } from "../utils/emailService.js";
+import { getOrderStatusEmailTemplate } from "../utils/orderStatusEmail.js";
+import { adminOrderEmailHTML } from "../utils/adminOrderEmail.js";
+import { generateInvoiceBuffer } from "../utils/invoiceEmailHelper.js";
+import { checkCODEligibility } from "./addressController.js";
+// import { createShiprocketOrder } from "../utils/Shiprocketservice.js"; // ⏸️ baad me karenge
+
+const razorpay = new Razorpay({
+    key_id: process.env.RAZORPAY_KEY_ID,
+    key_secret: process.env.RAZORPAY_KEY_SECRET,
+});
+
+/* ──────────────────────────────────────────────
+   HELPERS
+────────────────────────────────────────────── */
+const getClientIp = (req) =>
+    req.headers["x-forwarded-for"]?.split(",")[0]?.trim() ||
+    req.connection?.remoteAddress || "";
+
+const calcTotalWeight = async (items) => {
+    let total = 0;
+    for (const item of items) {
+        try {
+            const p = await Product.findById(item.productId).select("weight").lean();
+            total += (p?.weight || 500) * item.qty;
+        } catch { total += 500 * item.qty; }
+    }
+    return Math.max(100, total);
+};
+
+/* ──────────────────────────────────────────────
+   FRAUD CHECKER
+────────────────────────────────────────────── */
+const checkFraud = async ({ userId, ip, amount, paymentId }) => {
+    const reasons = [];
+    const oneHour = new Date(Date.now() - 60 * 60 * 1000);
+
+    if (paymentId) {
+        const dup = await Order.findOne({ "payment.razorpayPaymentId": paymentId }).lean();
+        if (dup) reasons.push("DUPLICATE_PAYMENT_ID");
+    }
+
+    const recentOrders = await Order.countDocuments({ user: userId, createdAt: { $gte: oneHour } });
+    if (recentOrders >= 5) reasons.push("HIGH_ORDER_FREQUENCY");
+
+    if (ip) {
+        const ipOrders = await Order.countDocuments({ "payment.ip": ip, createdAt: { $gte: oneHour } });
+        if (ipOrders >= 8) reasons.push("HIGH_IP_FREQUENCY");
+    }
+
+    const totalUserOrders = await Order.countDocuments({ user: userId });
+    if (totalUserOrders >= 5) {
+        const refundedCount = await Order.countDocuments({
+            user: userId,
+            "refund.status": { $in: ["APPROVED", "PROCESSED"] },
+        });
+        if (refundedCount / totalUserOrders > 0.3) reasons.push("HIGH_REFUND_RATE");
+    }
+
+    if (amount > 50000) reasons.push("HIGH_VALUE_ORDER");
+
+    return { flagged: reasons.length > 0, reasons };
+};
+
+/* ══════════════════════════════════════════════
+   CREATE ORDER
+   ✅ COD validated on BACKEND — cannot be faked
+══════════════════════════════════════════════ */
+export const createOrder = async (req, res) => {
+    try {
+        const {
+            items, customerName, phone, address, email,
+            totalAmount, platformFee, deliveryCharge,
+            paymentMethod, pincode,
+            latitude, longitude,
+        } = req.body;
+
+        if (!items?.length)
+            return res.status(400).json({ message: "Cart is empty" });
+        if (!customerName?.trim() || !phone?.trim() || !address?.trim())
+            return res.status(400).json({ message: "Customer details missing" });
+        if (!/^[6-9]\d{9}$/.test(phone.trim()))
+            return res.status(400).json({ message: "Invalid phone number" });
+        if (!totalAmount || Number(totalAmount) <= 0)
+            return res.status(400).json({ message: "Invalid total amount" });
+        if (items.length > 20)
+            return res.status(400).json({ message: "Too many items in cart" });
+
+        if (paymentMethod === "COD") {
+            if (!pincode || !/^\d{6}$/.test(pincode.trim()))
+                return res.status(400).json({ message: "Valid pincode required for COD orders" });
+
+            const codCheck = await checkCODEligibility(pincode.trim());
+            if (!codCheck.allowed) {
+                return res.status(400).json({
+                    message: `COD not available for this address. ${codCheck.reason}`,
+                    codUnavailable: true,
+                });
+            }
+        }
+
+        for (const item of items) {
+            const qty = Math.min(Math.max(1, Number(item.qty || item.quantity || 1)), 100);
+            const product = await Product.findById(item.productId || item._id);
+            if (!product) continue;
+            if (!product.inStock || product.stock < qty)
+                return res.status(400).json({ message: `"${product.name}" is out of stock` });
+            product.stock -= qty;
+            product.inStock = product.stock > 0;
+            await product.save();
+        }
+
+        const formattedItems = items.map(item => ({
+            productId: item.productId || item._id,
+            name: String(item.name || "Product").slice(0, 200),
+            price: Math.max(0, Number(item.price || 0)),
+            mrp: item.mrp ? Number(item.mrp) : null,
+            qty: Math.min(Math.max(1, Number(item.qty || item.quantity || 1)), 100),
+            image: typeof item.image === "string" ? item.image : item.images?.[0]?.url || "",
+            customization: {
+                text: String(item.customization?.text || "").trim().slice(0, 500),
+                imageUrl: String(item.customization?.imageUrl || "").trim().slice(0, 1000),
+                note: String(item.customization?.note || "").trim().slice(0, 1000),
+            },
+        }));
+
+        const ip = getClientIp(req);
+        const fraudCheck = await checkFraud({ userId: req.user._id, ip, amount: Number(totalAmount) });
+        const method = paymentMethod === "COD" ? "COD" : "RAZORPAY";
+        const invoiceNum = await generateInvoiceNumber();
+
+        const order = new Order({
+            user: req.user._id,
+            invoiceNumber: invoiceNum,
+            items: formattedItems,
+            customerName: customerName.trim().slice(0, 100),
+            phone: phone.trim(),
+            address: address.trim().slice(0, 500),
+            email: email?.trim().toLowerCase().slice(0, 200) || "",
+            latitude: latitude ? Number(latitude) : undefined,
+            longitude: longitude ? Number(longitude) : undefined,
+            totalAmount: Number(totalAmount),
+            platformFee: Number(platformFee || 11),
+            deliveryCharge: Number(deliveryCharge || 0),
+            payment: {
+                method,
+                status: "PENDING",
+                ip,
+                userAgent: req.headers["user-agent"]?.slice(0, 300) || "",
+                flagged: fraudCheck.flagged,
+                flagReasons: fraudCheck.reasons,
+            },
+            paymentLogs: [{
+                event: "ORDER_PLACED",
+                amount: Number(totalAmount),
+                method,
+                ip,
+                userAgent: req.headers["user-agent"]?.slice(0, 200) || "",
+                meta: { fraudCheck },
+                at: new Date(),
+            }],
+            orderStatus: "PLACED",
+            statusTimeline: { placedAt: new Date() },
+        });
+
+        const savedOrder = await order.save();
+
+        res.status(201).json({
+            success: true,
+            orderId: savedOrder._id,
+            invoiceNumber: savedOrder.invoiceNumber,
+            orderStatus: savedOrder.orderStatus,
+            flagged: fraudCheck.flagged,
+        });
+
+        const userMail = getOrderStatusEmailTemplate({
+            customerName: customerName.trim(),
+            orderId: savedOrder._id,
+            status: "PLACED",
+        });
+        if (email?.trim() && !email.includes("@rvgifts.com"))
+            sendEmail({ to: email.trim(), subject: userMail.subject, html: userMail.html, label: "User/NewOrder" });
+
+        sendEmail({
+            to: process.env.ADMIN_EMAIL,
+            subject: `🛒 New Order #${savedOrder._id.toString().slice(-6).toUpperCase()} — ₹${totalAmount}${fraudCheck.flagged ? " ⚠️ FLAGGED" : ""}`,
+            html: adminOrderEmailHTML({ order: savedOrder }),
+            label: "Admin/NewOrder",
+        });
+
+        if (fraudCheck.flagged)
+            console.warn(`[FRAUD] Order ${savedOrder._id} flagged:`, fraudCheck.reasons);
+
+    } catch (err) {
+        console.error("CREATE ORDER:", err);
+        res.status(500).json({ message: "Order placement failed. Please try again." });
+    }
+};
+
+/* ══════════════════════════════════════════════
+   CANCEL ORDER (USER)
+══════════════════════════════════════════════ */
+export const cancelOrder = async (req, res) => {
+    try {
+        const order = await Order.findById(req.params.id);
+        if (!order)
+            return res.status(404).json({ message: "Order not found" });
+        if (order.user.toString() !== req.user._id.toString())
+            return res.status(403).json({ message: "Not authorized" });
+        if (order.orderStatus === "CANCELLED")
+            return res.status(400).json({ message: "Already cancelled" });
+        if (!["PLACED", "CONFIRMED"].includes(order.orderStatus))
+            return res.status(400).json({
+                message: `Cannot cancel — order is already ${order.orderStatus.toLowerCase().replace(/_/g, " ")}. Cancellation is only allowed before packing.`,
+            });
+
+        order.orderStatus = "CANCELLED";
+        order.cancellationReason = String(req.body?.reason || "Cancelled by customer").trim().slice(0, 500);
+        const existing = order.statusTimeline?.toObject ? order.statusTimeline.toObject() : { ...order.statusTimeline };
+        order.statusTimeline = { ...existing, cancelledAt: new Date() };
+        order.markModified("statusTimeline");
+
+        if (order.payment.method === "RAZORPAY" && order.payment.status === "PAID") {
+            order.refund = {
+                requested: true,
+                requestedAt: new Date(),
+                reason: req.body?.reason || "Order cancelled by customer",
+                status: "REQUESTED",
+                amount: order.totalAmount,
+            };
+            order.paymentLogs.push({
+                event: "REFUND_REQUESTED", amount: order.totalAmount,
+                method: "RAZORPAY", ip: getClientIp(req), at: new Date(),
+            });
+        }
+
+        await order.save();
+
+        for (const item of order.items) {
+            try {
+                const p = await Product.findById(item.productId);
+                if (p) { p.stock += item.qty; p.inStock = p.stock > 0; await p.save(); }
+            } catch (e) { console.warn("Stock restore:", e.message); }
+        }
+
+        res.json({
+            success: true,
+            message: "Order cancelled",
+            order: order.toObject(),
+            refundRequested: !!order.refund?.requested,
+        });
+
+        const mail = getOrderStatusEmailTemplate({ customerName: order.customerName, orderId: order._id, status: "CANCELLED" });
+        if (order.email && !order.email.includes("@rvgifts.com"))
+            sendEmail({ to: order.email, subject: mail.subject, html: mail.html, label: "User/Cancel" });
+        sendEmail({
+            to: process.env.ADMIN_EMAIL,
+            subject: `❌ Cancelled #${order._id.toString().slice(-6).toUpperCase()} — ${order.customerName}`,
+            html: adminOrderEmailHTML({ order }),
+            label: "Admin/Cancel",
+        });
+
+    } catch (err) {
+        console.error("CANCEL ORDER:", err);
+        res.status(500).json({ message: "Failed to cancel order" });
+    }
+};
+
+/* ══════════════════════════════════════════════
+   GET MY ORDERS (USER)
+══════════════════════════════════════════════ */
+export const getMyOrders = async (req, res) => {
+    try {
+        const orders = await Order.find({ user: req.user._id }).sort({ createdAt: -1 }).lean();
+        res.json(orders);
+    } catch {
+        res.status(500).json({ message: "Failed to fetch orders" });
+    }
+};
+
+/* ══════════════════════════════════════════════
+   GET ORDER BY ID
+══════════════════════════════════════════════ */
+export const getOrderById = async (req, res) => {
+    try {
+        const order = await Order.findById(req.params.id).lean();
+        if (!order) return res.status(404).json({ message: "Order not found" });
+
+        const isOwner = order.user?.toString() === req.user._id.toString();
+        const isAdmin = ["admin", "owner"].includes(req.user.role);
+        if (!isOwner && !isAdmin) return res.status(403).json({ message: "Access denied" });
+
+        res.json(order);
+    } catch {
+        res.status(500).json({ message: "Error fetching order" });
+    }
+};
+
+/* ══════════════════════════════════════════════
+   UPDATE ORDER STATUS (ADMIN)
+══════════════════════════════════════════════ */
+export const updateOrderStatus = async (req, res) => {
+    try {
+        const { status } = req.body;
+        const valid = ["PLACED", "CONFIRMED", "PACKED", "SHIPPED", "OUT_FOR_DELIVERY", "DELIVERED", "CANCELLED"];
+        if (!valid.includes(status))
+            return res.status(400).json({ message: "Invalid status" });
+
+        const update = { orderStatus: status };
+        const tMap = {
+            CONFIRMED: "confirmedAt",
+            PACKED: "packedAt",
+            SHIPPED: "shippedAt",
+            DELIVERED: "deliveredAt",
+            CANCELLED: "cancelledAt",
+        };
+        if (tMap[status]) update[`statusTimeline.${tMap[status]}`] = new Date();
+
+        if (status === "DELIVERED") {
+            update["payment.status"] = "PAID";
+            update["payment.paidAt"] = new Date();
+        }
+        if (status === "SHIPPED") update["shipping.status"] = "SHIPPED";
+
+        const order = await Order.findByIdAndUpdate(
+            req.params.id,
+            { $set: update },
+            { new: true, runValidators: true }
+        );
+        if (!order) return res.status(404).json({ message: "Order not found" });
+
+        if (status === "CANCELLED") {
+            for (const item of order.items) {
+                try {
+                    const p = await Product.findById(item.productId);
+                    if (p) { p.stock += item.qty; p.inStock = p.stock > 0; await p.save(); }
+                } catch (e) { console.warn("Stock restore:", e.message); }
+            }
+        }
+
+        res.json(order);
+
+        if (order.email && !order.email.includes("@rvgifts.com")) {
+            const sMail = getOrderStatusEmailTemplate({ customerName: order.customerName, orderId: order._id, status });
+            if (status === "DELIVERED") {
+                try {
+                    const pdf = await generateInvoiceBuffer(order.toObject ? order.toObject() : order);
+                    sendEmail({
+                        to: order.email, subject: sMail.subject, html: sMail.html,
+                        label: `User/${status}`,
+                        attachments: [{
+                            filename: `RVGifts_Invoice_${order.invoiceNumber || order._id.toString().slice(-8).toUpperCase()}.pdf`,
+                            content: pdf,
+                        }],
+                    });
+                } catch {
+                    sendEmail({ to: order.email, subject: sMail.subject, html: sMail.html, label: `User/${status}` });
+                }
+            } else if (status !== "PACKED") {
+                sendEmail({ to: order.email, subject: sMail.subject, html: sMail.html, label: `User/${status}` });
+            }
+        }
+
+    } catch (err) {
+        console.error("UPDATE STATUS:", err);
+        res.status(500).json({ message: "Failed to update status" });
+    }
+};
+
+/* ══════════════════════════════════════════════
+   GET ALL ORDERS (ADMIN) — ✅ Paginated
+   Query params: ?page=1&limit=20&status=PLACED&search=xyz
+══════════════════════════════════════════════ */
+export const getAllOrders = async (req, res) => {
+    try {
+        const page = Math.max(1, parseInt(req.query.page) || 1);
+        const limit = Math.min(50, parseInt(req.query.limit) || 20);
+        const skip = (page - 1) * limit;
+
+        // ── Optional filters ──
+        const filter = {};
+        if (req.query.status && req.query.status !== "ALL")
+            filter.orderStatus = req.query.status;
+        if (req.query.search?.trim()) {
+            filter.$or = [
+                { customerName: { $regex: req.query.search.trim(), $options: "i" } },
+                { phone: { $regex: req.query.search.trim(), $options: "i" } },
+            ];
+        }
+
+        const [orders, total] = await Promise.all([
+            Order.find(filter).sort({ createdAt: -1 }).skip(skip).limit(limit).lean(),
+            Order.countDocuments(filter),
+        ]);
+
+        res.json({
+            orders,
+            total,
+            page,
+            totalPages: Math.ceil(total / limit),
+            limit,
+        });
+    } catch {
+        res.status(500).json({ message: "Failed to fetch orders" });
+    }
+};
+
+/* ══════════════════════════════════════════════
+   REQUEST REFUND (USER)
+══════════════════════════════════════════════ */
+export const requestRefund = async (req, res) => {
+    try {
+        const order = await Order.findById(req.params.id);
+        if (!order)
+            return res.status(404).json({ message: "Order not found" });
+        if (order.user.toString() !== req.user._id.toString())
+            return res.status(403).json({ message: "Not authorized" });
+        if (order.payment.method !== "RAZORPAY")
+            return res.status(400).json({ message: "Refund only for online payments" });
+        if (order.payment.status !== "PAID")
+            return res.status(400).json({ message: "Payment not completed" });
+        if (order.refund?.status && order.refund.status !== "NONE")
+            return res.status(400).json({ message: `Refund already ${order.refund.status.toLowerCase()}` });
+
+        order.refund = {
+            requested: true,
+            requestedAt: new Date(),
+            reason: (req.body.reason || "Requested by customer").trim().slice(0, 500),
+            status: "REQUESTED",
+            amount: order.totalAmount,
+        };
+        order.paymentLogs.push({
+            event: "REFUND_REQUESTED", amount: order.totalAmount,
+            method: "RAZORPAY", ip: getClientIp(req), at: new Date(),
+        });
+        order.markModified("refund");
+        await order.save();
+
+        res.json({ success: true, message: "Refund request submitted", refund: order.refund });
+
+        sendEmail({
+            to: process.env.ADMIN_EMAIL,
+            subject: `💰 Refund Request #${order._id.toString().slice(-6).toUpperCase()} — ₹${order.totalAmount}`,
+            html: `<p>Refund requested by ${order.customerName} for order #${order._id.toString().slice(-8).toUpperCase()}. Amount: ₹${order.totalAmount}</p>`,
+            label: "Admin/RefundRequest",
+        });
+
+    } catch (err) {
+        console.error("REQUEST REFUND:", err);
+        res.status(500).json({ message: "Failed to submit refund request" });
+    }
+};
+
+/* ══════════════════════════════════════════════
+   PROCESS REFUND (ADMIN)
+══════════════════════════════════════════════ */
+export const processRefund = async (req, res) => {
+    try {
+        const { action, adminNote } = req.body;
+        if (!["approve", "reject"].includes(action))
+            return res.status(400).json({ message: "Action must be approve or reject" });
+
+        const order = await Order.findById(req.params.id);
+        if (!order)
+            return res.status(404).json({ message: "Order not found" });
+        if (!order.refund?.requested || order.refund?.status !== "REQUESTED")
+            return res.status(400).json({ message: "No pending refund request" });
+
+        if (action === "reject") {
+            order.refund.status = "REJECTED";
+            order.refund.adminNote = adminNote?.trim() || "";
+            order.paymentLogs.push({ event: "REFUND_REJECTED", amount: order.refund.amount, method: "RAZORPAY", ip: getClientIp(req), at: new Date() });
+            order.markModified("refund");
+            await order.save();
+            if (order.email && !order.email.includes("@rvgifts.com"))
+                sendEmail({
+                    to: order.email,
+                    subject: `Refund Rejected — Order #${order._id.toString().slice(-6).toUpperCase()}`,
+                    html: `<p>Hi ${order.customerName}, your refund request has been rejected. ${adminNote || "Please contact support."}</p>`,
+                    label: "User/RefundRejected",
+                });
+            return res.json({ success: true, message: "Refund rejected" });
+        }
+
+        const refundAmount = order.refund.amount || order.totalAmount;
+        const paymentId = order.payment.razorpayPaymentId;
+        if (!paymentId)
+            return res.status(400).json({ message: "No Razorpay payment ID found" });
+
+        order.refund.status = "PROCESSING";
+        order.paymentLogs.push({ event: "REFUND_PROCESSING", amount: refundAmount, method: "RAZORPAY", paymentId, ip: getClientIp(req), at: new Date() });
+        order.markModified("refund");
+        await order.save();
+
+        try {
+            const rzRef = await razorpay.payments.refund(paymentId, {
+                amount: refundAmount * 100,
+                notes: { orderId: order._id.toString(), reason: order.refund.reason || "Admin refund" },
+            });
+
+            order.refund.status = "PROCESSED";
+            order.refund.razorpayRefundId = rzRef.id;
+            order.refund.processedAt = new Date();
+            order.refund.processedBy = req.user._id;
+            order.refund.adminNote = adminNote?.trim() || "";
+            order.payment.status = "REFUNDED";
+            order.paymentLogs.push({ event: "REFUND_PROCESSED", amount: refundAmount, method: "RAZORPAY", paymentId, meta: { refundId: rzRef.id }, at: new Date() });
+            order.markModified("refund");
+            order.markModified("payment");
+            await order.save();
+
+            res.json({ success: true, message: `₹${refundAmount} refunded`, refundId: rzRef.id });
+
+            if (order.email && !order.email.includes("@rvgifts.com"))
+                sendEmail({
+                    to: order.email,
+                    subject: `✅ Refund Processed — Order #${order._id.toString().slice(-6).toUpperCase()}`,
+                    html: `<p>Hi ${order.customerName}, refund of ₹${refundAmount.toLocaleString("en-IN")} processed. Reflects in 5–7 business days. Refund ID: ${rzRef.id}</p>`,
+                    label: "User/RefundProcessed",
+                });
+
+        } catch (rzErr) {
+            order.refund.status = "FAILED";
+            order.paymentLogs.push({ event: "REFUND_FAILED", amount: refundAmount, method: "RAZORPAY", paymentId, meta: { error: rzErr.message }, at: new Date() });
+            order.markModified("refund");
+            await order.save();
+            return res.status(500).json({ message: "Razorpay refund failed: " + (rzErr.error?.description || rzErr.message) });
+        }
+
+    } catch (err) {
+        console.error("PROCESS REFUND:", err);
+        res.status(500).json({ message: "Refund processing failed" });
+    }
+};
+
+/* ══════════════════════════════════════════════
+   RETRY REFUND (ADMIN)
+══════════════════════════════════════════════ */
+export const retryRefund = async (req, res) => {
+    try {
+        const order = await Order.findById(req.params.id);
+        if (!order)
+            return res.status(404).json({ message: "Order not found" });
+        if (order.refund?.status !== "FAILED")
+            return res.status(400).json({ message: "Only failed refunds can be retried" });
+
+        order.refund.status = "REQUESTED";
+        order.markModified("refund");
+        await order.save();
+
+        req.body.action = "approve";
+        return processRefund(req, res);
+    } catch {
+        res.status(500).json({ message: "Retry failed" });
+    }
+};
+
+/* ══════════════════════════════════════════════
+   ADMIN QUEUES
+══════════════════════════════════════════════ */
+export const getFlaggedOrders = async (req, res) => {
+    try {
+        const orders = await Order.find({ "payment.flagged": true }).sort({ createdAt: -1 }).lean();
+        res.json(orders);
+    } catch { res.status(500).json({ message: "Failed" }); }
+};
+
+export const getRefundQueue = async (req, res) => {
+    try {
+        const orders = await Order.find({ "refund.status": "REQUESTED" }).sort({ "refund.requestedAt": -1 }).lean();
+        res.json(orders);
+    } catch { res.status(500).json({ message: "Failed" }); }
+};
+
+/* ══════════════════════════════════════════════
+   SHIPROCKET WEBHOOK — ⏸️ enable when active
+══════════════════════════════════════════════ */
+// export const shiprocketWebhook = async (req, res) => { ... };
