@@ -9,13 +9,17 @@ if (!EMAIL_USER || !EMAIL_PASS) {
 
 // 🔥 Transporter Setup (Gmail example)
 const transporter = nodemailer.createTransport({
-    service: "gmail",
+    host: "smtp.gmail.com",
+    port: 465,
+    secure: true,
     auth: {
-        user: EMAIL_USER,
-        pass: EMAIL_PASS, // ⚠️ App Password use karna (normal password nahi)
+        user: process.env.EMAIL_USER,
+        pass: process.env.EMAIL_PASS,
     },
+    connectionTimeout: 20000,
+    greetingTimeout: 20000,
+    socketTimeout: 20000,
 });
-
 /**
  * Email Service (Nodemailer)
  */

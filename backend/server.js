@@ -45,6 +45,7 @@ const allowedOrigins = [
     "https://urbexon.in",
     "https://www.urbexon.in",
     "https://admin.urbexon.in",
+
 ];
 
 app.use(
