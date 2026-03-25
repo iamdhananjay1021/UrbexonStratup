@@ -38,7 +38,7 @@ app.set("trust proxy", 1);
 app.use(helmet());
 app.use(mongoSanitize());
 app.use(xss());
-app.use(hpp());
+// app.use(hpp());
 
 /* ─────────────────────────────
    CORS (FIXED FOR urbexon.in)
