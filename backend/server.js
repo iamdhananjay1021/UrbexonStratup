@@ -5,9 +5,7 @@ import helmet from "helmet";
 import rateLimit from "express-rate-limit";
 import compression from "compression";
 import morgan from "morgan";
-import mongoSanitize from "express-mongo-sanitize";
 import xss from "xss-clean";
-import hpp from "hpp";
 
 import connectDB from "./config/db.js";
 
@@ -33,33 +31,21 @@ connectDB();
 app.set("trust proxy", 1);
 
 /* ─────────────────────────────
-   SECURITY (ENTERPRISE LEVEL)
+   SECURITY (STABLE)
 ───────────────────────────── */
 app.use(helmet());
-app.use(mongoSanitize());
-app.use(xss());
-// app.use(hpp());
+app.use(xss()); // basic XSS protection
 
 /* ─────────────────────────────
-   CORS (FIXED FOR urbexon.in)
+   CORS (urbexon.in READY)
 ───────────────────────────── */
 const allowedOrigins = [
     "http://localhost:5173",
     "http://localhost:5174",
-
     "https://urbexon.in",
     "https://www.urbexon.in",
-    "https://admin.urbexon.in"
+    "https://admin.urbexon.in",
 ];
-
-if (process.env.CORS_ORIGINS) {
-    process.env.CORS_ORIGINS.split(",").forEach((o) => {
-        const origin = o.trim();
-        if (origin && !allowedOrigins.includes(origin)) {
-            allowedOrigins.push(origin);
-        }
-    });
-}
 
 app.use(
     cors({
@@ -75,32 +61,13 @@ app.use(
 );
 
 /* ─────────────────────────────
-   RATE LIMIT (ANTI ABUSE)
+   RATE LIMIT
 ───────────────────────────── */
 app.use(
     "/api",
     rateLimit({
         windowMs: 60 * 1000,
         max: 120,
-        message: { message: "Too many requests. Slow down." },
-    })
-);
-
-app.use(
-    "/api/auth/login",
-    rateLimit({
-        windowMs: 15 * 60 * 1000,
-        max: 5,
-        message: { message: "Too many login attempts. Try later." },
-    })
-);
-
-app.use(
-    "/api/auth/register",
-    rateLimit({
-        windowMs: 15 * 60 * 1000,
-        max: 5,
-        message: { message: "Too many register attempts. Try later." },
     })
 );
 
@@ -119,11 +86,11 @@ app.use(compression());
 /* ─────────────────────────────
    LOGGER
 ───────────────────────────── */
-if (process.env.NODE_ENV === "production") {
-    app.use(morgan("combined"));
-} else {
-    app.use(morgan("dev"));
-}
+app.use(
+    process.env.NODE_ENV === "production"
+        ? morgan("combined")
+        : morgan("dev")
+);
 
 /* ─────────────────────────────
    HEALTH CHECK
@@ -132,9 +99,6 @@ app.get("/", (_req, res) => {
     res.json({
         success: true,
         message: "Urbexon API 🚀",
-        env: process.env.NODE_ENV,
-        uptime: process.uptime(),
-        time: new Date().toISOString(),
     });
 });
 
@@ -157,31 +121,21 @@ app.use("/api/invoice", invoiceRoutes);
 app.use((req, res) => {
     res.status(404).json({
         success: false,
-        message: `Route not found: ${req.method} ${req.originalUrl}`,
+        message: `Route not found: ${req.originalUrl}`,
     });
 });
 
 /* ─────────────────────────────
-   GLOBAL ERROR HANDLER
+   ERROR HANDLER
 ───────────────────────────── */
 app.use((err, _req, res, _next) => {
-    console.error("🔥 ERROR:", err);
+    console.error("🔥 ERROR:", err.message);
 
     if (err.message === "CORS not allowed") {
-        return res.status(403).json({
-            success: false,
-            message: err.message,
-        });
+        return res.status(403).json({ success: false, message: err.message });
     }
 
-    if (err instanceof SyntaxError) {
-        return res.status(400).json({
-            success: false,
-            message: "Invalid JSON payload",
-        });
-    }
-
-    res.status(err.status || 500).json({
+    res.status(500).json({
         success: false,
         message:
             process.env.NODE_ENV === "production"
@@ -195,22 +149,6 @@ app.use((err, _req, res, _next) => {
 ───────────────────────────── */
 const PORT = process.env.PORT || 10000;
 
-const server = app.listen(PORT, "0.0.0.0", () => {
+app.listen(PORT, () => {
     console.log(`🚀 Server running on port ${PORT}`);
-    console.log(`🌍 Mode: ${process.env.NODE_ENV}`);
 });
-
-/* ─────────────────────────────
-   GRACEFUL SHUTDOWN
-───────────────────────────── */
-process.on("SIGINT", () => {
-    console.log("🛑 Graceful shutdown...");
-    server.close(() => process.exit(0));
-});
-
-process.on("SIGTERM", () => {
-    console.log("🛑 SIGTERM received...");
-    server.close(() => process.exit(0));
-});
-
-export default app;
