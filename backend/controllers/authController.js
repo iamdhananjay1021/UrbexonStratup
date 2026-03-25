@@ -37,7 +37,10 @@ export const register = async (req, res) => {
             exists.emailOtp = otp;
             exists.emailOtpExpires = Date.now() + 10 * 60 * 1000;
             await exists.save({ validateBeforeSave: false });
-            await sendOtpEmail(exists.email, exists.name, otp);
+            setImmediate(() => {
+                sendOtpEmail(exists.email, exists.name, otp)
+                    .catch(err => console.log("Email failed:", err.message));
+            });
             return res.status(200).json({
                 success: true,
                 message: "OTP resent to your email",
@@ -62,7 +65,10 @@ export const register = async (req, res) => {
             emailOtpExpires: Date.now() + 10 * 60 * 1000,
         });
 
-        await sendOtpEmail(user.email, user.name, otp);
+        setImmediate(() => {
+            sendOtpEmail(user.email, user.name, otp)
+                .catch(err => console.log("Email failed:", err.message));
+        });
 
         return res.status(201).json({
             success: true,
@@ -134,7 +140,10 @@ export const resendOtp = async (req, res) => {
         user.emailOtpExpires = Date.now() + 10 * 60 * 1000;
         await user.save({ validateBeforeSave: false });
 
-        await sendOtpEmail(user.email, user.name, otp);
+        setImmediate(() => {
+            sendOtpEmail(user.email, user.name, otp)
+                .catch(err => console.log("Email failed:", err.message));
+        });
         return res.json({ success: true, message: "OTP resent successfully" });
 
     } catch (error) {
@@ -175,7 +184,10 @@ export const login = async (req, res) => {
             user.emailOtp = otp;
             user.emailOtpExpires = Date.now() + 10 * 60 * 1000;
             await user.save({ validateBeforeSave: false });
-            await sendOtpEmail(user.email, user.name, otp);
+            setImmediate(() => {
+                sendOtpEmail(user.email, user.name, otp)
+                    .catch(err => console.log("Email failed:", err.message));
+            });
             return res.status(403).json({
                 message: "Email not verified. OTP sent to your email.",
                 requiresVerification: true,
@@ -305,7 +317,7 @@ export const forgotPassword = async (req, res) => {
             </div>
         `;
 
-        await sendEmail({ to: user.email, subject: "Reset Your Password - RV Gift Shop", html, label: "Auth/ForgotPassword" });
+        await sendEmail({ to: user.email, subject: "Reset Your Password - Urbexon", html, label: "Auth/ForgotPassword" });
         res.json({ success: true, message: "If this email exists, a reset link has been sent" });
 
     } catch (error) {
@@ -413,7 +425,7 @@ export const adminForgotPassword = async (req, res) => {
 
         await sendEmail({
             to: admin.email,
-            subject: "RVGifts Admin — Password Reset Request",
+            subject: "Urbexon Admin — Password Reset Request",
             html,
             label: "AdminAuth/ForgotPassword",
         });
