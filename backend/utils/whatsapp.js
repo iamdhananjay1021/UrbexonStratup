@@ -67,7 +67,7 @@ Payment: Cash on Delivery
 
 We will keep you updated.
 
-- RV Gift Shop
+- Urexon
     `.trim();
 
     return `https://wa.me/${userNumber}?text=${encodeURIComponent(message)}`;

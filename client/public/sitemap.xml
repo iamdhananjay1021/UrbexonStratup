@@ -3,44 +3,44 @@
 
   <!-- Homepage -->
   <url>
-    <loc>https://www.rvgift.com/</loc>
-    <lastmod>2026-03-15</lastmod>
+    <loc>https://www.urbexon.in/</loc>
+    <lastmod>2026-03-25</lastmod>
     <changefreq>daily</changefreq>
     <priority>1.0</priority>
   </url>
 
   <!-- Contact -->
   <url>
-    <loc>https://www.rvgift.com/contact</loc>
-    <lastmod>2026-03-15</lastmod>
+    <loc>https://www.urbexon.in/contact</loc>
+    <lastmod>2026-03-25</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
   </url>
 
   <!-- Legal pages -->
   <url>
-    <loc>https://www.rvgift.com/privacy-policy</loc>
-    <lastmod>2026-03-15</lastmod>
+    <loc>https://www.urbexon.in/privacy-policy</loc>
+    <lastmod>2026-03-25</lastmod>
     <changefreq>yearly</changefreq>
     <priority>0.3</priority>
   </url>
 
   <url>
-    <loc>https://www.rvgift.com/terms-conditions</loc>
-    <lastmod>2026-03-15</lastmod>
+    <loc>https://www.urbexon.in/terms-conditions</loc>
+    <lastmod>2026-03-25</lastmod>
     <changefreq>yearly</changefreq>
     <priority>0.3</priority>
   </url>
 
   <url>
-    <loc>https://www.rvgift.com/refund-policy</loc>
-    <lastmod>2026-03-15</lastmod>
+    <loc>https://www.urbexon.in/refund-policy</loc>
+    <lastmod>2026-03-25</lastmod>
     <changefreq>yearly</changefreq>
     <priority>0.3</priority>
   </url>
 
-  <!-- NOTE: Product URLs (slug-based) backend se dynamically serve honge -->
-  <!-- https://www.rvgift.com/products/[slug] -->
-  <!-- Ye backend /api/sitemap route se auto-generate hoga -->
+  <!-- Dynamic Product URLs -->
+  <!-- https://www.urbexon.in/products/[slug] -->
+  <!-- Backend /api/sitemap route se auto-generate hoga -->
 
 </urlset>

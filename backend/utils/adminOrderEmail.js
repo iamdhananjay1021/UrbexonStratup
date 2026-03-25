@@ -17,7 +17,7 @@ export const adminOrderEmailHTML = ({ order }) => {
     <div style="max-width:650px;margin:auto;background:white;padding:30px;border-radius:10px">
 
       <h2 style="margin-bottom:10px;color:#111827">New Order Received</h2>
-      <p>A new order has been placed on <b>RV Gift Shop</b>.</p>
+      <p>A new order has been placed on <b>Urbexon</b>.</p>
       <hr/>
 
       <p><b>Order ID:</b> ${order._id}</p>
@@ -41,13 +41,13 @@ export const adminOrderEmailHTML = ({ order }) => {
 
       <p><b>Total Amount:</b> Rs.${Number(order.totalAmount).toLocaleString("en-IN")}</p>
 
-      <a href="https://admin.rvgift.com/orders/${order._id}" target="_blank" rel="noopener"
+      <a href="https://admin.urbexon.in/orders/${order._id}" target="_blank" rel="noopener"
         style="display:inline-block;margin-top:20px;padding:14px 22px;background:#111827;color:white;text-decoration:none;border-radius:6px;font-weight:bold">
         Open Admin Dashboard
       </a>
 
       <p style="margin-top:30px;font-size:13px;color:#6b7280">
-        Urbexon&bull; Admin Notification
+        Urbexon &bull; Admin Notification &bull; Noida, Uttar Pradesh
       </p>
     </div>
   </div>

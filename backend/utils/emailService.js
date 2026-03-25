@@ -1,61 +1,67 @@
-import nodemailer from "nodemailer";
+import { Resend } from "resend";
 
-const EMAIL_USER = process.env.EMAIL_USER;
-const EMAIL_PASS = process.env.EMAIL_PASS;
-
-if (!EMAIL_USER || !EMAIL_PASS) {
-    console.error("❌ EMAIL_USER or EMAIL_PASS missing in .env");
+if (!process.env.RESEND_API_KEY) {
+    console.error("❌ RESEND_API_KEY missing in .env");
 }
 
-// 🔥 Transporter Setup (Gmail example)
-const transporter = nodemailer.createTransport({
-    host: "smtp.gmail.com",
-    port: 465,
-    secure: true,
-    auth: {
-        user: process.env.EMAIL_USER,
-        pass: process.env.EMAIL_PASS,
-    },
-    connectionTimeout: 20000,
-    greetingTimeout: 20000,
-    socketTimeout: 20000,
-});
-/**
- * Email Service (Nodemailer)
- */
+const resend = new Resend(process.env.RESEND_API_KEY);
+
+// localhost  → onboarding@resend.dev  (no domain verification needed)
+// production → your actual domain email from .env
+const isDev = process.env.NODE_ENV !== "production";
+const FROM_EMAIL = isDev ? "onboarding@resend.dev" : process.env.FROM_EMAIL;
+const FROM_NAME = process.env.FROM_NAME || "Urbexon Team";
+
+// ══════════════════════════════════════════════
+// CORE SEND — used internally, always returns
+// ══════════════════════════════════════════════
 export const sendEmail = async ({
     to,
     subject,
     html,
-    fromName = "UrbeXon",
-    attachments = []
+    fromName = FROM_NAME,
+    label = "General",
 }) => {
-
     if (!to || !to.includes("@")) {
-        console.error(`❌ Invalid email: ${to}`);
-        return { success: false, error: "Invalid Email" };
+        console.error(`❌ [${label}] Invalid email address: ${to}`);
+        return { success: false, error: "Invalid email address" };
     }
 
     try {
-        const mailOptions = {
-            from: `${fromName} <${EMAIL_USER}>`,
+        const { data, error } = await resend.emails.send({
+            from: `${fromName} <${FROM_EMAIL}>`,
             to,
             subject: subject.trim(),
             html,
-            replyTo: EMAIL_USER,
-            attachments
-        };
+        });
 
-        const info = await transporter.sendMail(mailOptions);
+        if (error) {
+            console.error(`❌ [${label}] Resend API error → ${to}:`, error.message);
+            return { success: false, error: error.message };
+        }
 
-        console.log(`✅ Email sent to ${to} | ID: ${info.messageId}`);
-
-        return { success: true, messageId: info.messageId };
+        console.log(`✅ [${label}] Email sent → ${to} | ID: ${data.id}`);
+        return { success: true, messageId: data.id };
 
     } catch (err) {
-        console.error(`❌ Email failed to ${to}`);
-        console.error(err.message);
-
+        console.error(`❌ [${label}] Unexpected error → ${to}:`, err.message);
         return { success: false, error: err.message };
     }
+};
+
+// ══════════════════════════════════════════════
+// FIRE-AND-FORGET — non-blocking wrapper
+// Use this everywhere in controllers so the API
+// responds instantly without waiting for email.
+// ══════════════════════════════════════════════
+export const sendEmailBackground = (options) => {
+    // Intentionally NOT awaited — runs in background
+    sendEmail(options).then((result) => {
+        if (!result.success) {
+            // Safe to log here; this runs after response is already sent
+            console.error(`🔁 [Background] Email failed for ${options.to}:`, result.error);
+            // Optional: push to a retry queue here if needed later
+        }
+    });
+    // Returns immediately — does not block caller
 };

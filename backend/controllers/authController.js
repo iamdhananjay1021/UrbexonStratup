@@ -2,7 +2,7 @@ import User from "../models/User.js";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import crypto from "crypto";
-import { sendEmail } from "../utils/emailService.js";
+import { sendEmail, sendEmailBackground } from "../utils/emailService.js";
 
 // ══════════════════════════════════════════════
 // HELPERS
@@ -15,7 +15,7 @@ const generateOtp = () =>
     Math.floor(100000 + Math.random() * 900000).toString();
 
 // ══════════════════════════════════════════════
-// REGISTER — sends OTP, no token yet
+// REGISTER — responds instantly, email in background
 // ══════════════════════════════════════════════
 export const register = async (req, res) => {
     try {
@@ -37,10 +37,10 @@ export const register = async (req, res) => {
             exists.emailOtp = otp;
             exists.emailOtpExpires = Date.now() + 10 * 60 * 1000;
             await exists.save({ validateBeforeSave: false });
-            setImmediate(() => {
-                sendOtpEmail(exists.email, exists.name, otp)
-                    .catch(err => console.log("Email failed:", err.message));
-            });
+
+            // ✅ Non-blocking — response sent before email is delivered
+            sendEmailBackground(buildOtpEmailPayload(exists.email, exists.name, otp));
+
             return res.status(200).json({
                 success: true,
                 message: "OTP resent to your email",
@@ -65,10 +65,8 @@ export const register = async (req, res) => {
             emailOtpExpires: Date.now() + 10 * 60 * 1000,
         });
 
-        setImmediate(() => {
-            sendOtpEmail(user.email, user.name, otp)
-                .catch(err => console.log("Email failed:", err.message));
-        });
+        // ✅ Non-blocking — DB write is done, response goes out NOW
+        sendEmailBackground(buildOtpEmailPayload(user.email, user.name, otp));
 
         return res.status(201).json({
             success: true,
@@ -140,10 +138,9 @@ export const resendOtp = async (req, res) => {
         user.emailOtpExpires = Date.now() + 10 * 60 * 1000;
         await user.save({ validateBeforeSave: false });
 
-        setImmediate(() => {
-            sendOtpEmail(user.email, user.name, otp)
-                .catch(err => console.log("Email failed:", err.message));
-        });
+        // ✅ Non-blocking
+        sendEmailBackground(buildOtpEmailPayload(user.email, user.name, otp));
+
         return res.json({ success: true, message: "OTP resent successfully" });
 
     } catch (error) {
@@ -154,9 +151,6 @@ export const resendOtp = async (req, res) => {
 
 // ══════════════════════════════════════════════
 // LOGIN
-// ══════════════════════════════════════════════
-// ══════════════════════════════════════════════
-// LOGIN  (replace the existing export const login block)
 // ══════════════════════════════════════════════
 export const login = async (req, res) => {
     try {
@@ -171,8 +165,6 @@ export const login = async (req, res) => {
         const isMatch = await bcrypt.compare(password, user.password);
         if (!isMatch) return res.status(401).json({ message: "Invalid credentials" });
 
-        // ✅ ADMIN BLOCK — admin/owner accounts must use the Admin Panel
-        // Returning 403 with a clear message so the frontend can display it
         if (["admin", "owner"].includes(user.role)) {
             return res.status(403).json({
                 message: "Admin accounts must login via the Admin Panel.",
@@ -184,10 +176,10 @@ export const login = async (req, res) => {
             user.emailOtp = otp;
             user.emailOtpExpires = Date.now() + 10 * 60 * 1000;
             await user.save({ validateBeforeSave: false });
-            setImmediate(() => {
-                sendOtpEmail(user.email, user.name, otp)
-                    .catch(err => console.log("Email failed:", err.message));
-            });
+
+            // ✅ Non-blocking
+            sendEmailBackground(buildOtpEmailPayload(user.email, user.name, otp));
+
             return res.status(403).json({
                 message: "Email not verified. OTP sent to your email.",
                 requiresVerification: true,
@@ -195,7 +187,6 @@ export const login = async (req, res) => {
             });
         }
 
-        // Only "user" role reaches here
         return res.status(200).json({
             _id: user._id,
             name: user.name,
@@ -230,7 +221,6 @@ export const getProfile = async (req, res) => {
 // ══════════════════════════════════════════════
 export const saveLocation = async (req, res) => {
     try {
-        // ✅ IDOR fix: userId body se nahi, verified token se lo
         const userId = req.user._id;
         const { latitude, longitude, city, state } = req.body;
         if (latitude && (latitude < -90 || latitude > 90))
@@ -268,7 +258,7 @@ export const getAllUsers = async (req, res) => {
 };
 
 // ══════════════════════════════════════════════
-// USER — FORGOT PASSWORD  →  rvgift.com
+// USER — FORGOT PASSWORD
 // ══════════════════════════════════════════════
 export const forgotPassword = async (req, res) => {
     try {
@@ -277,7 +267,6 @@ export const forgotPassword = async (req, res) => {
 
         const user = await User.findOne({ email: email.toLowerCase().trim() });
 
-        // Security: never reveal if email exists
         if (!user) return res.json({ success: true, message: "If this email exists, a reset link has been sent" });
 
         const resetToken = crypto.randomBytes(32).toString("hex");
@@ -287,37 +276,16 @@ export const forgotPassword = async (req, res) => {
         user.passwordResetExpires = Date.now() + 15 * 60 * 1000;
         await user.save({ validateBeforeSave: false });
 
-        // ✅ User site URL
         const resetUrl = `${process.env.FRONTEND_URL}/reset-password/${resetToken}`;
 
-        const html = `
-            <div style="font-family:Arial,sans-serif;background:#f5f7fa;padding:30px">
-                <div style="max-width:520px;margin:auto;background:#fff;padding:30px;border-radius:12px;border:1px solid #e5e7eb">
-                    <div style="text-align:center;margin-bottom:24px">
-                        <div style="width:56px;height:56px;background:#f59e0b;border-radius:14px;display:inline-flex;align-items:center;justify-content:center;font-size:28px">🎁</div>
-                    </div>
-                    <h2 style="color:#111827;text-align:center;margin-bottom:8px">Reset Your Password</h2>
-                    <p style="color:#6b7280;text-align:center;font-size:14px;margin-bottom:24px">
-                        We received a request to reset your RV Gift Shop password.
-                    </p>
-                    <div style="text-align:center;margin-bottom:24px">
-                        <a href="${resetUrl}" style="display:inline-block;padding:14px 28px;background:#f59e0b;color:#fff;text-decoration:none;border-radius:10px;font-weight:bold;font-size:15px">
-                            🔑 Reset Password
-                        </a>
-                    </div>
-                    <p style="color:#9ca3af;font-size:12px;text-align:center;margin-bottom:8px">
-                        This link expires in <strong>15 minutes</strong>.
-                    </p>
-                    <p style="color:#9ca3af;font-size:12px;text-align:center">
-                        If you didn't request this, ignore this email.
-                    </p>
-                    <hr style="margin:24px 0;border:none;border-top:1px solid #f3f4f6"/>
-                    <p style="color:#d1d5db;font-size:11px;text-align:center">RV Gift Shop • Security Notification</p>
-                </div>
-            </div>
-        `;
+        // ✅ Non-blocking — respond immediately
+        sendEmailBackground({
+            to: user.email,
+            subject: "Reset Your Password - Urexon",
+            html: buildResetPasswordHtml(resetUrl),
+            label: "Auth/ForgotPassword",
+        });
 
-        await sendEmail({ to: user.email, subject: "Reset Your Password - Urbexon", html, label: "Auth/ForgotPassword" });
         res.json({ success: true, message: "If this email exists, a reset link has been sent" });
 
     } catch (error) {
@@ -362,14 +330,13 @@ export const resetPassword = async (req, res) => {
 };
 
 // ══════════════════════════════════════════════
-// ADMIN — FORGOT PASSWORD  →  admin.rvgift.com
+// ADMIN — FORGOT PASSWORD
 // ══════════════════════════════════════════════
 export const adminForgotPassword = async (req, res) => {
     try {
         const { email } = req.body;
         if (!email?.trim()) return res.status(400).json({ message: "Email is required" });
 
-        // ✅ Sirf admin/owner role — regular users is route se reset na kar sakein
         const admin = await User.findOne({
             email: email.toLowerCase().trim(),
             role: { $in: ["admin", "owner"] },
@@ -384,49 +351,13 @@ export const adminForgotPassword = async (req, res) => {
         admin.passwordResetExpires = Date.now() + 15 * 60 * 1000;
         await admin.save({ validateBeforeSave: false });
 
-        // ✅ ADMIN URL — admin.rvgift.com
         const resetUrl = `${process.env.ADMIN_FRONTEND_URL}/admin/reset-password/${resetToken}`;
 
-        const html = `
-            <div style="font-family:'DM Sans',Arial,sans-serif;background:#0f0c29;padding:40px 20px">
-                <div style="max-width:480px;margin:auto;background:rgba(255,255,255,0.05);
-                            border:1.5px solid rgba(255,255,255,0.1);border-radius:20px;overflow:hidden">
-                    <div style="height:4px;background:linear-gradient(90deg,#f59e0b,#f97316,#ef4444,#8b5cf6)"></div>
-                    <div style="padding:36px 32px;text-align:center">
-                        <div style="width:60px;height:60px;background:linear-gradient(135deg,#f59e0b,#f97316);
-                                    border-radius:50%;display:inline-flex;align-items:center;
-                                    justify-content:center;font-size:26px;margin-bottom:20px">🛡️</div>
-                        <h2 style="color:#fff;margin:0 0 8px;font-size:22px;font-weight:800">
-                            Admin Password Reset
-                        </h2>
-                        <p style="color:rgba(255,255,255,0.5);font-size:13px;margin-bottom:28px">
-                            RVGifts Admin Panel — Authorized Access Only
-                        </p>
-                        <a href="${resetUrl}"
-                            style="display:inline-block;padding:14px 32px;
-                                   background:linear-gradient(135deg,#f59e0b,#f97316);
-                                   color:#fff;text-decoration:none;border-radius:10px;
-                                   font-weight:700;font-size:15px">
-                            Reset Admin Password →
-                        </a>
-                        <p style="color:rgba(255,255,255,0.3);font-size:12px;margin-top:24px">
-                            Yeh link <strong style="color:rgba(255,255,255,0.5)">15 minutes</strong>
-                            mein expire ho jayega.<br/>
-                            Agar aapne request nahi ki toh ignore karo.
-                        </p>
-                        <hr style="border:none;border-top:1px solid rgba(255,255,255,0.08);margin:24px 0"/>
-                        <code style="color:rgba(255,255,255,0.2);font-size:10px;word-break:break-all">
-                            ${resetUrl}
-                        </code>
-                    </div>
-                </div>
-            </div>
-        `;
-
-        await sendEmail({
+        // ✅ Non-blocking
+        sendEmailBackground({
             to: admin.email,
-            subject: "Urbexon Admin — Password Reset Request",
-            html,
+            subject: "RVGifts Admin — Password Reset Request",
+            html: buildAdminResetHtml(resetUrl),
             label: "AdminAuth/ForgotPassword",
         });
 
@@ -454,7 +385,6 @@ export const adminResetPassword = async (req, res) => {
 
         const hashedToken = crypto.createHash("sha256").update(token).digest("hex");
 
-        // ✅ role check — ensures only admin/owner tokens are valid here
         const admin = await User.findOne({
             passwordResetToken: hashedToken,
             passwordResetExpires: { $gt: Date.now() },
@@ -477,7 +407,7 @@ export const adminResetPassword = async (req, res) => {
 };
 
 // ══════════════════════════════════════════════
-// ADMIN LOGIN  →  admin.rvgift.com
+// ADMIN LOGIN
 // ══════════════════════════════════════════════
 export const adminLogin = async (req, res) => {
     try {
@@ -489,7 +419,6 @@ export const adminLogin = async (req, res) => {
         const user = await User.findOne({ email: email.toLowerCase().trim() });
         if (!user) return res.status(401).json({ message: "Invalid credentials" });
 
-        // Only admin/owner can use this route
         if (!["admin", "owner"].includes(user.role)) {
             return res.status(403).json({ message: "Access denied. Admin or Owner only." });
         }
@@ -512,34 +441,105 @@ export const adminLogin = async (req, res) => {
 };
 
 // ══════════════════════════════════════════════
-// OTP EMAIL HELPER
+// EMAIL HTML BUILDERS  (pure functions, easy to test)
 // ══════════════════════════════════════════════
-async function sendOtpEmail(email, name, otp) {
-    const html = `
+
+function buildOtpEmailPayload(email, name, otp) {
+    return {
+        to: email,
+        subject: "Verify Your Email - Urexon",
+        label: "Auth/OTP",
+        html: `
+            <div style="font-family:Arial,sans-serif;background:#f5f7fa;padding:30px">
+                <div style="max-width:520px;margin:auto;background:#fff;padding:30px;border-radius:12px;border:1px solid #e5e7eb">
+                    <div style="text-align:center;margin-bottom:24px">
+                        <div style="width:56px;height:56px;background:#f59e0b;border-radius:14px;display:inline-flex;align-items:center;justify-content:center;font-size:28px">🎁</div>
+                    </div>
+                    <h2 style="color:#111827;text-align:center;margin-bottom:8px">Verify Your Email</h2>
+                    <p style="color:#6b7280;text-align:center;font-size:14px;margin-bottom:24px">
+                        Hi ${name}! Use this OTP to verify your Urexon account.
+                    </p>
+                    <div style="text-align:center;margin-bottom:24px">
+                        <div style="display:inline-block;background:#fef3c7;border:2px dashed #f59e0b;border-radius:12px;padding:16px 40px">
+                            <span style="font-size:36px;font-weight:900;color:#d97706;letter-spacing:8px">${otp}</span>
+                        </div>
+                    </div>
+                    <p style="color:#9ca3af;font-size:12px;text-align:center;margin-bottom:8px">
+                        This OTP will expire in <strong>10 minutes</strong>.
+                    </p>
+                    <p style="color:#9ca3af;font-size:12px;text-align:center">
+                        If you didn't create an account, please ignore this email.
+                    </p>
+                    <hr style="margin:24px 0;border:none;border-top:1px solid #f3f4f6"/>
+                    <p style="color:#d1d5db;font-size:11px;text-align:center">Urexon • Email Verification</p>
+                </div>
+            </div>
+        `,
+    };
+}
+
+function buildResetPasswordHtml(resetUrl) {
+    return `
         <div style="font-family:Arial,sans-serif;background:#f5f7fa;padding:30px">
             <div style="max-width:520px;margin:auto;background:#fff;padding:30px;border-radius:12px;border:1px solid #e5e7eb">
                 <div style="text-align:center;margin-bottom:24px">
                     <div style="width:56px;height:56px;background:#f59e0b;border-radius:14px;display:inline-flex;align-items:center;justify-content:center;font-size:28px">🎁</div>
                 </div>
-                <h2 style="color:#111827;text-align:center;margin-bottom:8px">Verify Your Email</h2>
+                <h2 style="color:#111827;text-align:center;margin-bottom:8px">Reset Your Password</h2>
                 <p style="color:#6b7280;text-align:center;font-size:14px;margin-bottom:24px">
-                    Hi ${name}! Use this OTP to verify your RV Gift Shop account.
+                    We received a request to reset your Urexon password.
                 </p>
                 <div style="text-align:center;margin-bottom:24px">
-                    <div style="display:inline-block;background:#fef3c7;border:2px dashed #f59e0b;border-radius:12px;padding:16px 40px">
-                        <span style="font-size:36px;font-weight:900;color:#d97706;letter-spacing:8px">${otp}</span>
-                    </div>
+                    <a href="${resetUrl}" style="display:inline-block;padding:14px 28px;background:#f59e0b;color:#fff;text-decoration:none;border-radius:10px;font-weight:bold;font-size:15px">
+                        🔑 Reset Password
+                    </a>
                 </div>
                 <p style="color:#9ca3af;font-size:12px;text-align:center;margin-bottom:8px">
-                    This OTP will expire in <strong>10 minutes</strong>.
+                    This link expires in <strong>15 minutes</strong>.
                 </p>
                 <p style="color:#9ca3af;font-size:12px;text-align:center">
-                    If you didn't create an account, please ignore this email.
+                    If you didn't request this, ignore this email.
                 </p>
                 <hr style="margin:24px 0;border:none;border-top:1px solid #f3f4f6"/>
-                <p style="color:#d1d5db;font-size:11px;text-align:center">RV Gift Shop • Email Verification</p>
+                <p style="color:#d1d5db;font-size:11px;text-align:center">Urexon • Security Notification</p>
             </div>
         </div>
     `;
-    await sendEmail({ to: email, subject: "Verify Your Email - RV Gift Shop", html, label: "Auth/OTP" });
+}
+
+function buildAdminResetHtml(resetUrl) {
+    return `
+        <div style="font-family:'DM Sans',Arial,sans-serif;background:#0f0c29;padding:40px 20px">
+            <div style="max-width:480px;margin:auto;background:rgba(255,255,255,0.05);
+                        border:1.5px solid rgba(255,255,255,0.1);border-radius:20px;overflow:hidden">
+                <div style="height:4px;background:linear-gradient(90deg,#f59e0b,#f97316,#ef4444,#8b5cf6)"></div>
+                <div style="padding:36px 32px;text-align:center">
+                    <div style="width:60px;height:60px;background:linear-gradient(135deg,#f59e0b,#f97316);
+                                border-radius:50%;display:inline-flex;align-items:center;
+                                justify-content:center;font-size:26px;margin-bottom:20px">🛡️</div>
+                    <h2 style="color:#fff;margin:0 0 8px;font-size:22px;font-weight:800">
+                        Admin Password Reset
+                    </h2>
+                    <p style="color:rgba(255,255,255,0.5);font-size:13px;margin-bottom:28px">
+                        RVGifts Admin Panel — Authorized Access Only
+                    </p>
+                    <a href="${resetUrl}"
+                        style="display:inline-block;padding:14px 32px;
+                               background:linear-gradient(135deg,#f59e0b,#f97316);
+                               color:#fff;text-decoration:none;border-radius:10px;
+                               font-weight:700;font-size:15px">
+                        Reset Admin Password →
+                    </a>
+                    <p style="color:rgba(255,255,255,0.3);font-size:12px;margin-top:24px">
+                        This link expires in <strong style="color:rgba(255,255,255,0.5)">15 minutes</strong>.<br/>
+                        If you didn't request this, ignore this email.
+                    </p>
+                    <hr style="border:none;border-top:1px solid rgba(255,255,255,0.08);margin:24px 0"/>
+                    <code style="color:rgba(255,255,255,0.2);font-size:10px;word-break:break-all">
+                        ${resetUrl}
+                    </code>
+                </div>
+            </div>
+        </div>
+    `;
 }

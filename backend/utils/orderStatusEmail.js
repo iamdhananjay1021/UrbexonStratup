@@ -60,7 +60,7 @@ export const getOrderStatusEmailTemplate = ({
     ` : "";
 
   return {
-    subject: `Order ${readableStatus} — #${shortId} | RV Gift Shop`,
+    subject: `Order ${readableStatus} — #${shortId} | Urbexon`,
     html: `
 <!DOCTYPE html>
 <html>
@@ -70,7 +70,7 @@ export const getOrderStatusEmailTemplate = ({
 
     <!-- Header -->
     <div style="background:linear-gradient(135deg,#111827,#1f2937);border-radius:12px 12px 0 0;padding:24px 30px;text-align:center">
-      <h1 style="margin:0;color:white;font-size:22px;letter-spacing:0.5px">RV Gift Shop</h1>
+      <h1 style="margin:0;color:white;font-size:22px;letter-spacing:0.5px">Urbexon</h1>
       <p style="margin:4px 0 0;color:#9ca3af;font-size:13px">Order Notification</p>
     </div>
 
@@ -100,14 +100,14 @@ export const getOrderStatusEmailTemplate = ({
       <!-- Support -->
       <div style="margin:20px 0;padding:14px;background:#fff7ed;border-radius:8px;border:1px solid #fed7aa">
         <p style="margin:0;font-size:13px;color:#9a3412">
-          Need help? WhatsApp us at <b>+91 82995 19532</b> or reply to this email.
+          Need help? WhatsApp us at <b>+91 88084 85840</b> or email us at <b>officialurbexon@gmail.com</b>
         </p>
       </div>
 
       <!-- Thank you -->
       <div style="margin-top:24px;padding:20px;background:#ecfdf5;border-radius:8px;text-align:center">
-        <p style="margin:0;color:#065f46;font-weight:600;font-size:15px">Thank you for shopping with RV Gift Shop</p>
-        <p style="margin:6px 0 0;color:#6b7280;font-size:12px">RV Gift and Printing &bull; Gadhi Chowk, Dost Pur Road, Shahzadpur, Akbarpur</p>
+        <p style="margin:0;color:#065f46;font-weight:600;font-size:15px">Thank you for shopping with Urbexon</p>
+        <p style="margin:6px 0 0;color:#6b7280;font-size:12px">Urbexon &bull; Sector 62, Noida, Uttar Pradesh</p>
       </div>
 
     </div>

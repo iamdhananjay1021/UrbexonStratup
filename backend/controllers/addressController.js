@@ -14,7 +14,7 @@ const COD_RADIUS_KM = 15;
    Akbarpur + nearby areas (within 15km of shop)
 ══════════════════════════════════════════════ */
 const LOCAL_PINCODE_COORDS = {
-    "224122": { lat: 26.4192, lng: 82.5359 }, // Akbarpur (shop location)
+    "201301": { lat: 26.4192, lng: 82.5359 }, // Akbarpur (shop location)
     "224123": { lat: 26.4300, lng: 82.5500 }, // Akbarpur area
     "224001": { lat: 26.4500, lng: 82.5200 }, // nearby
     "224181": { lat: 26.3900, lng: 82.5600 }, // Tanda

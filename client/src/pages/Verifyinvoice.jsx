@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useParams, Link } from "react-router-dom";
 import axios from "axios";
 
-const API = import.meta.env.VITE_API_URL || "https://rv-gift-backend-wojs.onrender.com/api";
+const API = import.meta.env.VITE_API_URL || "https://api.urbexon.in/api";
 
 const VerifyInvoice = () => {
     const { invoiceNumber } = useParams();
@@ -43,10 +43,10 @@ const VerifyInvoice = () => {
 
             {/* Logo */}
             <Link to="/" className="mb-8 flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-amber-500 flex items-center justify-center">
-                    <span className="font-black text-white text-base">RV</span>
+                <div className="w-10 h-10 rounded-xl bg-zinc-900 flex items-center justify-center">
+                    <span className="font-black text-white text-sm tracking-tight">UX</span>
                 </div>
-                <span className="font-black text-zinc-800 text-xl">RV Gifts</span>
+                <span className="font-black text-zinc-800 text-xl">Urbexon</span>
             </Link>
 
             <div className="w-full max-w-md">
@@ -54,7 +54,7 @@ const VerifyInvoice = () => {
                 {/* Loading */}
                 {loading && (
                     <div className="bg-white rounded-2xl border border-stone-200 shadow-sm p-10 text-center">
-                        <div className="w-12 h-12 border-4 border-amber-400 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+                        <div className="w-12 h-12 border-4 border-zinc-900 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
                         <p className="text-zinc-500 font-medium text-sm">Verifying invoice...</p>
                         <p className="text-zinc-400 text-xs mt-1">{invoiceNumber}</p>
                     </div>
@@ -84,7 +84,7 @@ const VerifyInvoice = () => {
                                 </svg>
                             </div>
                             <h2 className="font-black text-white text-xl">Invoice Verified</h2>
-                            <p className="text-emerald-100 text-sm mt-1">This is an authentic RV Gifts invoice</p>
+                            <p className="text-emerald-100 text-sm mt-1">This is an authentic Urbexon invoice</p>
                         </div>
 
                         {/* Details */}
@@ -124,7 +124,7 @@ const VerifyInvoice = () => {
                         <div className="bg-stone-50 border-t border-stone-100 px-6 py-4 text-center">
                             <p className="text-xs text-zinc-400">
                                 Verified by{" "}
-                                <span className="font-bold text-zinc-600">rvgift.com</span>
+                                <span className="font-bold text-zinc-600">urbexon.in</span>
                             </p>
                         </div>
                     </div>
@@ -150,12 +150,12 @@ const VerifyInvoice = () => {
                                 <p className="text-red-600 text-xs leading-relaxed">
                                     Invoice number{" "}
                                     <span className="font-mono font-bold">{invoiceNumber}</span>{" "}
-                                    does not exist in our system. If you received this from RV Gifts and Printing, please contact us immediately.
+                                    does not exist in our system. If you received this from Urbexon, please contact us immediately.
                                 </p>
                             </div>
                             <p className="text-zinc-400 text-xs">
                                 Contact:{" "}
-                                <span className="font-bold text-zinc-600">8299519532,9792770976</span>
+                                <span className="font-bold text-zinc-600">+91 88084 85840</span>
                             </p>
                         </div>
                     </div>
@@ -166,9 +166,9 @@ const VerifyInvoice = () => {
                     <div className="text-center mt-6">
                         <Link
                             to="/"
-                            className="text-amber-600 font-semibold text-sm hover:text-amber-700 transition-colors"
+                            className="text-zinc-600 font-semibold text-sm hover:text-zinc-800 transition-colors"
                         >
-                            Back to RV Gifts and Printing
+                            ← Back to Urbexon
                         </Link>
                     </div>
                 )}

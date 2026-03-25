@@ -47,7 +47,7 @@ const AdminForgotPassword = () => {
         try {
             setLoading(true);
             setError("");
-            // ✅ Admin-specific route — admin.rvgift.com link bhejega
+            // ✅ Admin-specific route — admin.urbexon.in link bhejega
             await api.post("/auth/admin/forgot-password", { email: email.trim() });
             setSuccess(true);
             setCountdown(60); // 60s resend cooldown

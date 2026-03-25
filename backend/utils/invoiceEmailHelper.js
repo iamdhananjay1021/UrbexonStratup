@@ -2,22 +2,22 @@ import PDFDocument from "pdfkit";
 import QRCode from "qrcode";
 
 const SHOP = {
-    name: process.env.SHOP_NAME || "SastaBazar",
-    address: process.env.SHOP_ADDRESS || "Delhi , Uttar Pradesh",
-    city: process.env.SHOP_CITY || "Delhi  ",
+    name: process.env.SHOP_NAME || "Urbexon",
+    address: process.env.SHOP_ADDRESS || "Sector 62, Noida",
+    city: process.env.SHOP_CITY || "Noida, Uttar Pradesh",
     stateCode: process.env.SHOP_STATE_CODE || "09",
-    gstin: process.env.SHOP_GSTIN || "0932892382", // Update if you have new GST
-    email: process.env.SHOP_EMAIL || "support@sastabazar.com",
-    phone: "8808485840", // Aapka naya primary number
-    website: "sastabazar.com",
+    gstin: process.env.SHOP_GSTIN || "09AABCU1234F1Z5", // Dummy GST
+    email: process.env.SHOP_EMAIL || "officialurbexon@gmail.com",
+    phone: "8808485840",
+    website: "urbexon.in",
 };
 
-const VERIFY_BASE = process.env.CLIENT_URL || "https://sastabazar.com";
+const VERIFY_BASE = process.env.CLIENT_URL || "https://urbexon.in";
 
-// Professional E-commerce Color Palette (Flipkart Blue Theme)
+// Professional E-commerce Color Palette
 const C = {
-    primary: "#2874F0",      // SastaBazar Blue
-    primaryLight: "#E3F2FD",
+    primary: "#111827",
+    primaryLight: "#F3F4F6",
     dark: "#1F2937",
     zinc: "#374151",
     mid: "#6B7280",
@@ -75,13 +75,13 @@ export const generateInvoiceBuffer = async (order) => {
 
             let y = 0;
 
-            // ── HEADER (SastaBazar Branding) ──
+            // ── HEADER ──
             rect(0, 0, PW, 4, C.primary);
             rect(0, 4, PW, 110, C.white);
             rect(M, 20, 3, 78, C.primary);
 
             doc.font("Helvetica-Bold").fontSize(24).fillColor(C.primary).text(SHOP.name.toUpperCase(), M + 14, 20);
-            doc.font("Helvetica").fontSize(8).fillColor(C.mid).text("Aapka Apna Sasta Marketplace", M + 14, 48, { characterSpacing: 0.5 });
+            doc.font("Helvetica").fontSize(8).fillColor(C.mid).text("Your Premium Online Store", M + 14, 48, { characterSpacing: 0.5 });
             doc.font("Helvetica").fontSize(8).fillColor(C.zinc)
                 .text(SHOP.address, M + 14, 62)
                 .text(SHOP.city + " | State Code: " + SHOP.stateCode, M + 14, 74)
@@ -194,13 +194,13 @@ export const generateInvoiceBuffer = async (order) => {
             doc.image(qrBuffer, M + 10, qrY + 10, { width: 60 });
 
             doc.font("Helvetica-Bold").fontSize(10).fillColor(C.primary).text("Verify Your Purchase", M + 80, qrY + 15);
-            doc.font("Helvetica").fontSize(8).fillColor(C.mid).text("Scan this QR to verify your invoice on sastabazar.com. SastaBazar ensures 100% original products.", M + 80, qrY + 30, { width: CW - 100 });
+            doc.font("Helvetica").fontSize(8).fillColor(C.mid).text("Scan this QR to verify your invoice on urbexon.in. Urbexon ensures 100% original products.", M + 80, qrY + 30, { width: CW - 100 });
             doc.font("Helvetica-Bold").fontSize(8).fillColor(C.zinc).text("Secure Transaction | Fast Delivery | Easy Returns", M + 80, qrY + 55);
 
             // ── FOOTER ──
             const FY = 780;
             hline(FY, C.border);
-            doc.font("Helvetica-Bold").fontSize(10).fillColor(C.primary).text("SastaBazar - Aapka Apna Marketplace", M, FY + 15, { align: "center", width: CW });
+            doc.font("Helvetica-Bold").fontSize(10).fillColor(C.primary).text("Urbexon - Your Premium Online Store", M, FY + 15, { align: "center", width: CW });
             doc.font("Helvetica").fontSize(8).fillColor(C.mid).text(`For Support: WhatsApp ${SHOP.phone} | Email: ${SHOP.email}`, M, FY + 30, { align: "center", width: CW });
 
             doc.end();

@@ -6,10 +6,10 @@ export default function ContactUs() {
 
     // ✅ SEO — dynamic title & meta
     useEffect(() => {
-        document.title = "Contact Us | RV Gift & Printing - Akbarpur, Delhi ";
+        document.title = "Contact Us | Urbexon – Get in Touch with Our Team";
         const desc = document.querySelector('meta[name="description"]');
         if (desc) desc.setAttribute("content",
-            "Contact RV Gift & Printing in Akbarpur. Call +91 82995 19532, email dhananjay072007@gmail.com, or visit us at Gadhi Chowk, Dost Pur Road, Akbarpur, Delhi  UP."
+            "Contact Urbexon in Noida. Call +91 88084 85840, email support@urbexon.com, or visit us at our location in Noida, UP."
         );
     }, []);
 
@@ -64,20 +64,20 @@ export default function ContactUs() {
                         <InfoCard
                             icon="📧"
                             title="Email Us"
-                            line1="dhananjay072007@gmail.com"
+                            line1="support@urbexon.com"
                             line2="For orders & general queries"
                         />
                         <InfoCard
                             icon="📞"
                             title="Call Us"
-                            line1="+91 82995 19532 / +91 97927 70976"
+                            line1="+91 88084 85840"
                             line2="Mon–Sun, 10am – 6pm"
                         />
                         <InfoCard
                             icon="📍"
                             title="Our Address"
-                            line1="Gadhi Chowk, Dost Pur Road, Shahzadpur, Akbarpur"
-                            line2="Delhi  – 224122, UP, India"
+                            line1="Ground Floor, Sector 63, Noida"
+                            line2="Noida, UP – 201301, India"
                         />
                         <InfoCard
                             icon="⏱️"

@@ -31,9 +31,9 @@ const Footer = () => {
                         </p>
 
                         <div className="flex gap-3 mt-4">
-                            <a href="#" className="hover:text-white"><FaFacebookF /></a>
-                            <a href="#" className="hover:text-white"><FaInstagram /></a>
-                            <a href="#" className="hover:text-white"><FaWhatsapp /></a>
+                            {/* <a href="#" className="hover:text-white"><FaFacebookF /></a> */}
+                            <a href="https://www.instagram.com/urbexon.in?utm_source=qr&igsh=aDY4ajUxZDJib254" className="hover:text-white"><FaInstagram /></a>
+                            <a href="https://wa.me/918808485840" className="hover:text-white"><FaWhatsapp /></a>
                         </div>
                     </div>
 
@@ -66,7 +66,7 @@ const Footer = () => {
                         <div className="space-y-3 text-sm text-gray-500">
                             <p className="flex items-start gap-2">
                                 <FaMapMarkerAlt size={12} />
-                                Akbarpur, UP – 224122
+                                Noida, UP – 201301
                             </p>
 
                             <a href="tel:+918808485840" className="flex items-center gap-2 hover:text-white">

@@ -28,10 +28,10 @@ router.post("/save-location", protect, saveLocation); // ✅ auth required — I
 router.post("/forgot-password", forgotPassword);
 router.post("/reset-password/:token", resetPassword);
 
-// ── Admin Login  →  admin.rvgift.com ───────────────────────
+// ── Admin Login  →  admin.urbexon.in ───────────────────────
 router.post("/admin/login", adminLogin);
 
-// ── Admin Password Reset  →  admin.rvgift.com ──────────────
+// ── Admin Password Reset  →  admin.urbexon.in ──────────────
 // Alag routes — ADMIN_FRONTEND_URL use karta hai
 // Role check: sirf admin/owner reset kar sakta hai
 router.post("/admin/forgot-password", adminForgotPassword);

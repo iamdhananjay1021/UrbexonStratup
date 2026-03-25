@@ -8,9 +8,9 @@ export default function TermsConditions() {
     return (
         <div className="min-h-screen bg-[#fdf8f3]">
             {/* Header */}
-            <div className="bg-white border-b border-amber-100 py-12">
+            <div className="bg-white border-b border-stone-100 py-12">
                 <div className="max-w-3xl mx-auto px-6 text-center">
-                    <p className="text-amber-600 text-sm font-medium tracking-widest uppercase mb-3">Legal</p>
+                    <p className="text-zinc-500 text-sm font-medium tracking-widest uppercase mb-3">Legal</p>
                     <h1 className="text-4xl font-bold text-gray-900" style={{ fontFamily: "'Playfair Display', serif" }}>
                         Terms &amp; Conditions
                     </h1>
@@ -20,9 +20,9 @@ export default function TermsConditions() {
 
             {/* Content */}
             <div className="max-w-3xl mx-auto px-6 py-12">
-                <div className="bg-white rounded-2xl shadow-sm border border-amber-50 p-8 md:p-12 space-y-10">
+                <div className="bg-white rounded-2xl shadow-sm border border-stone-100 p-8 md:p-12 space-y-10">
 
-                    <div className="bg-amber-50 border-l-4 border-amber-400 rounded-r-xl p-4 text-sm text-gray-700">
+                    <div className="bg-zinc-50 border-l-4 border-zinc-800 rounded-r-xl p-4 text-sm text-gray-700">
                         Please read these Terms &amp; Conditions carefully before using our website or placing an order. By accessing our website, you agree to be bound by these terms.
                     </div>
 
@@ -57,15 +57,15 @@ export default function TermsConditions() {
                     </Section>
 
                     <Section title="6. Intellectual Property">
-                        <p>All content on this website, including text, images, logos, and graphics, is the property of Urbexonand is protected by applicable intellectual property laws. You may not use any content without our prior written permission.</p>
+                        <p>All content on this website, including text, images, logos, and graphics, is the property of Urbexon and is protected by applicable intellectual property laws. You may not use any content without our prior written permission.</p>
                     </Section>
 
                     <Section title="7. Limitation of Liability">
-                        <p>To the fullest extent permitted by law, Urbexonshall not be liable for any indirect, incidental, special, or consequential damages arising from your use of our website or products. Our total liability shall not exceed the amount paid for the specific order in question.</p>
+                        <p>To the fullest extent permitted by law, Urbexon shall not be liable for any indirect, incidental, special, or consequential damages arising from your use of our website or products. Our total liability shall not exceed the amount paid for the specific order in question.</p>
                     </Section>
 
                     <Section title="8. Governing Law">
-                        <p>These Terms and Conditions are governed by the laws of India. Any disputes arising shall be subject to the exclusive jurisdiction of the courts in Delhi , Uttar Pradesh, India.</p>
+                        <p>These Terms and Conditions are governed by the laws of India. Any disputes arising shall be subject to the exclusive jurisdiction of the courts in Gautam Buddha Nagar (Noida), Uttar Pradesh, India.</p>
                     </Section>
 
                     <Section title="9. Changes to Terms">
@@ -98,14 +98,13 @@ function Section({ title, children }) {
 
 function ContactBox() {
     return (
-        <div className="mt-3 bg-amber-50 border border-amber-100 rounded-xl p-5 text-sm text-gray-700 space-y-1">
-            <p><strong>RV Gift and Printing</strong></p>
-            <p>Owner: Ravi Verma</p>
-            <p>Email: dhananjay072007@gmail.com</p>
-            <p>Phone: +91 82995 19532, +91 97927 70976</p>
-            <p>Gadhi Chowk, Dost Pur Road, Shahzadpur, Akbarpur</p>
-            <p>Delhi  – 224122, Uttar Pradesh, India</p>
-            <p>GSTIN: 09AOHPV4034Q3Z3</p>
+        <div className="mt-3 bg-zinc-50 border border-zinc-200 rounded-xl p-5 text-sm text-gray-700 space-y-1">
+            <p><strong>Urbexon</strong></p>
+            <p>Email: officialurbexon@gmail.com</p>
+            <p>Phone: +91 88084 85840</p>
+            <p>Sector 62, Noida</p>
+            <p>Noida – 201309, Uttar Pradesh, India</p>
+            {/* <p>GSTIN: 09AABCU1234F1Z5</p> */}
         </div>
     );
 }

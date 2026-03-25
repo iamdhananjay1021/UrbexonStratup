@@ -8,9 +8,9 @@ export default function PrivacyPolicy() {
     return (
         <div className="min-h-screen bg-[#fdf8f3]">
             {/* Header */}
-            <div className="bg-white border-b border-amber-100 py-12">
+            <div className="bg-white border-b border-stone-100 py-12">
                 <div className="max-w-3xl mx-auto px-6 text-center">
-                    <p className="text-amber-600 text-sm font-medium tracking-widest uppercase mb-3">Legal</p>
+                    <p className="text-zinc-500 text-sm font-medium tracking-widest uppercase mb-3">Legal</p>
                     <h1 className="text-4xl font-bold text-gray-900" style={{ fontFamily: "'Playfair Display', serif" }}>
                         Privacy Policy
                     </h1>
@@ -20,7 +20,7 @@ export default function PrivacyPolicy() {
 
             {/* Content */}
             <div className="max-w-3xl mx-auto px-6 py-12">
-                <div className="bg-white rounded-2xl shadow-sm border border-amber-50 p-8 md:p-12 space-y-10">
+                <div className="bg-white rounded-2xl shadow-sm border border-stone-100 p-8 md:p-12 space-y-10">
 
                     <Section title="1. Information We Collect">
                         <p>We collect information you provide directly to us when you create an account, place an order, or contact us. This includes:</p>
@@ -49,7 +49,7 @@ export default function PrivacyPolicy() {
                         <p>We do not sell, trade, or rent your personal information to third parties. We may share your information with:</p>
                         <ul>
                             <li><strong>Payment Processors:</strong> Razorpay, for secure payment processing</li>
-                            <li><strong>Delivery Partners:</strong> Local transport services engaged to deliver your order to your address</li>
+                            <li><strong>Delivery Partners:</strong> Logistics and courier services engaged to deliver your order</li>
                             <li><strong>Legal Authorities:</strong> When required by law or to protect our rights</li>
                         </ul>
                     </Section>
@@ -106,13 +106,13 @@ function Section({ title, children }) {
 
 function ContactBox() {
     return (
-        <div className="mt-3 bg-amber-50 border border-amber-100 rounded-xl p-5 text-sm text-gray-700 space-y-1">
-            <p><strong>RV Gift and Printing</strong></p>
-            <p>Email: dhananjay072007@gmail.com</p>
-            <p>Phone: +91 82995 19532, +91 97927 70976</p>
-            <p>Gadhi Chowk, Dost Pur Road, Shahzadpur, Akbarpur</p>
-            <p>Delhi  – 224122, Uttar Pradesh, India</p>
-            <p>GSTIN: 09AOHPV4034Q3Z3</p>
+        <div className="mt-3 bg-zinc-50 border border-zinc-200 rounded-xl p-5 text-sm text-gray-700 space-y-1">
+            <p><strong>Urbexon</strong></p>
+            <p>Email: officialurbexon@gmail.com</p>
+            <p>Phone: +91 88084 85840</p>
+            <p>Sector 62, Noida</p>
+            <p>Noida – 201309, Uttar Pradesh, India</p>
+            {/* <p>GSTIN: 09AABCU1234F1Z5</p> */}
         </div>
     );
 }

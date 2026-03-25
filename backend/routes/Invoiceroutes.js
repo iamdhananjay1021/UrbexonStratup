@@ -59,7 +59,7 @@ router.get("/:invoiceNumber/verify", async (req, res) => {
             paymentStatus: order.payment?.status,
             totalAmount: order.totalAmount,
             date: order.createdAt,
-            message: "This is an authentic RV Gifts invoice.",
+            message: "This is an authentic Urbexon invoice.",
         });
 
     } catch (err) {

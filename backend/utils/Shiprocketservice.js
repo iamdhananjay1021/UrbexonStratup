@@ -58,7 +58,7 @@
 //    Used in Checkout — live rate per pincode
 // ════════════════════════════════════════ */
 // export const calculateShippingRate = async ({ deliveryPincode, weight, cod = false }) => {
-//     const pickupPincode = "224122"; // RV Gift shop
+//     const pickupPincode = "201301"; // Urexon
 //     const wtKg = Math.max(0.1, weight / 1000);
 
 //     if (MOCK_MODE) {
