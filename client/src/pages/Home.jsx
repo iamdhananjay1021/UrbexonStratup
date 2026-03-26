@@ -1313,7 +1313,7 @@ const Home = () => {
                     <div className="uk2-hero-inner">
                         <div>
                             <p className="uk2-hero-eyebrow uk2-anim-1">UrbeXon · Premium E-Commerce</p>
-                            <h1 className="uk2-hero-h1 uk2-anim-2">Shop The<br /><em>New Rcb.</em><br /><span style={{ opacity: 0.3, fontSize: "55%" }}>Live The Trend.</span></h1>
+                            <h1 className="uk2-hero-h1 uk2-anim-2">Shop The<br /><em>New Rcb CHAMPION 2026.</em><br /><span style={{ opacity: 0.3, fontSize: "55%" }}>Live The Trend.</span></h1>
                             <p className="uk2-hero-sub uk2-anim-3">Discover fashion, electronics, and lifestyle products handpicked for you. Premium quality, unbeatable prices — delivered to your door.</p>
                             <div className="uk2-hero-btns uk2-anim-4">
                                 <button onClick={() => document.getElementById("products-section")?.scrollIntoView({ behavior: "smooth" })} className="uk2-btn-primary">Shop Now <FaArrowRight size={11} /></button>
