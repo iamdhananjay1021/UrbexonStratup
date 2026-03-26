@@ -279,7 +279,7 @@ const Navbar = () => {
                                 <div style={{ width: 28, height: 28, borderRadius: 8, background: "var(--g1)", display: "flex", alignItems: "center", justifyContent: "center" }}>
                                     <FaSearch size={12} color="var(--dk)" />
                                 </div>
-                                <span style={{ fontSize: 13, fontWeight: 600, color: "rgba(255,255,255,.8)" }}>Search</span>
+                                <span style={{ fontSize: 13, fontWeight: 600, color: "rgba(255,255,255,.8)" }}>Searchhhhhhhhhh</span>
                             </div>
                             <button className="mcls" onClick={closeSearch}><FaTimes size={11} /></button>
                         </div>
