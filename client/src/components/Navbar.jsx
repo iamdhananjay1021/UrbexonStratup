@@ -395,7 +395,7 @@ const Navbar = () => {
                     <button onClick={() => go("/")} style={{ background: "none", border: "none", cursor: "pointer", display: "flex", alignItems: "center", gap: 10 }}>
                         <LogoMark />
                         <span className="nxlg" style={{ fontWeight: 700, fontSize: 20, letterSpacing: ".04em", color: "#fff" }}>
-                            URB<span style={{ color: "var(--g1)" }}>DJ</span>
+                            URB<span style={{ color: "var(--g1)" }}>EXON</span>
                         </span>
                     </button>
                     <div className="ml-auto flex items-center gap-0.5">
@@ -422,7 +422,8 @@ const Navbar = () => {
                     <button onClick={() => go("/")} style={{ background: "none", border: "none", cursor: "pointer", display: "flex", alignItems: "center", gap: 10, flexShrink: 0 }}>
                         <LogoMark />
                         <span className="nxlg" style={{ fontWeight: 700, fontSize: 22, letterSpacing: ".04em", color: "var(--navy)" }}>
-                            URB<span style={{ color: "var(--g1)" }}>EXON</span>
+                            Shivam<span style={{ color: "var(--g1)" }}>EXON</span>
+
                         </span>
                     </button>
 
