@@ -52,7 +52,7 @@ const ShareModal = ({ product, onClose }) => {
     };
 
     return (
-        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4"
+        <div className="fixed inset-0 z-[600] flex items-end sm:items-center justify-center p-4"
             style={{ background: "rgba(0,0,0,0.45)", backdropFilter: "blur(4px)" }}
             onClick={onClose}>
             <div className="bg-white w-full max-w-sm rounded-3xl overflow-hidden shadow-2xl"
@@ -131,8 +131,6 @@ const RatingBar = ({ star, count, pct }) => (
     </div>
 );
 
-
-
 const ZoomModal = ({ src, alt, onClose }) => {
     useEffect(() => {
         const handler = (e) => { if (e.key === "Escape") onClose(); };
@@ -159,7 +157,6 @@ const ZoomModal = ({ src, alt, onClose }) => {
                 justifyContent: "center",
             }}
         >
-            {/* Close button */}
             <button
                 onClick={onClose}
                 style={{
@@ -179,13 +176,6 @@ const ZoomModal = ({ src, alt, onClose }) => {
             >
                 <FaTimes size={16} color="white" />
             </button>
-
-            {/*
-              ✅ THE ACTUAL FIX:
-              - Outer div = fixed 90vw x 90vh box
-              - img inside = 100% width + 100% height with object-fit: contain
-              - Image CANNOT escape this box no matter how big it is
-            */}
             <div
                 onClick={e => e.stopPropagation()}
                 style={{
@@ -379,7 +369,6 @@ const ProductDetails = () => {
         </div>
     );
 
-    // ✅ ALWAYS use heroImageUrl (detail size) for zoom — never zoomImageUrl which can be massive
     const heroImageUrl = imgUrl.detail(product.images?.[0]?.url || "");
 
     return (
@@ -409,14 +398,15 @@ const ProductDetails = () => {
             .cta-buy:hover { background:#d97706; }
             .cta-primary:active { transform:scale(0.98); }
             .badge { display:inline-flex; align-items:center; font-size:10px; font-weight:700; letter-spacing:0.08em; text-transform:uppercase; padding:4px 10px; }
-            .share-btn { display:flex; align-items:center; gap:6px; padding:10px 16px; border:1px solid #e7e5e4; font-size:11px; font-weight:600; letter-spacing:0.08em; text-transform:uppercase; cursor:pointer; background:white; transition:all 0.2s; }
-            .share-btn:hover { border-color:#1c1917; background:#1c1917; color:white; }
             .review-card { border:1px solid #f0eeec; padding:20px; transition:border-color 0.2s; }
             .review-card:hover { border-color:#d6d3d1; }
             .notify-input { width:100%; padding:12px 14px; border:1px solid #e7e5e4; font-size:13px; font-family:'Jost',sans-serif; outline:none; transition:all 0.2s; background:#fafaf8; }
             .notify-input:focus { border-color:#1c1917; background:white; }
             .zoom-wrap:hover .zoom-icon { opacity: 1; }
             .zoom-icon { opacity: 0; transition: opacity 0.2s; pointer-events: none; }
+            .share-float { display:flex; align-items:center; gap:6px; background:rgba(255,255,255,0.92); backdrop-filter:blur(8px); color:#1c1917; font-size:10px; font-weight:700; letter-spacing:0.1em; text-transform:uppercase; padding:7px 14px; border-radius:99px; border:1px solid rgba(255,255,255,0.6); box-shadow:0 2px 12px rgba(0,0,0,0.12); cursor:pointer; transition:all 0.2s; }
+            .share-float:hover { background:#fff; box-shadow:0 4px 18px rgba(0,0,0,0.16); transform:translateY(-1px); }
+            .share-float:active { transform:scale(0.96); }
         `}</style>
 
             <div className="pd-root">
@@ -438,7 +428,7 @@ const ProductDetails = () => {
 
                         {/* ── Image Panel ── */}
                         <div className="relative">
-                            {/* ✅ zoom-wrap for hover icon effect */}
+                            {/* Image with zoom */}
                             <div
                                 className="zoom-wrap aspect-square bg-stone-50 overflow-hidden cursor-zoom-in relative"
                                 onClick={() => setImgZoomed(true)}
@@ -448,7 +438,7 @@ const ProductDetails = () => {
                                         className="w-full h-full object-contain p-8 img-hover" />
                                     : <div className="w-full h-full flex items-center justify-center text-6xl">🎁</div>
                                 }
-                                {/* Hover overlay with zoom icon */}
+                                {/* Hover zoom icon */}
                                 <div className="zoom-icon absolute inset-0 bg-black/10 flex items-center justify-center">
                                     <div style={{ background: "rgba(255,255,255,0.9)", borderRadius: 4, padding: "10px 16px", display: "flex", alignItems: "center", gap: 8 }}>
                                         <FaSearchPlus size={13} color="#1c1917" />
@@ -457,7 +447,7 @@ const ProductDetails = () => {
                                 </div>
                             </div>
 
-                            {/* Floating badges */}
+                            {/* Floating badges — left side */}
                             <div className="absolute top-4 left-4 flex flex-col gap-2">
                                 {product.isCustomizable && <span className="badge bg-emerald-600 text-white">✏️ Customizable</span>}
                                 {!product.inStock && <span className="badge bg-zinc-900 text-white">Sold Out</span>}
@@ -468,9 +458,17 @@ const ProductDetails = () => {
                                 )}
                             </div>
 
-                            <div className="flex items-center gap-2 mt-3 justify-between">
+                            {/* ✅ FIX: Share button floating ON the image — top right */}
+                            <button
+                                className="share-float absolute top-3 right-3 z-10"
+                                onClick={() => setShareOpen(true)}
+                            >
+                                <FaShare size={10} /> Share
+                            </button>
+
+                            {/* Zoom hint only */}
+                            <div className="mt-3">
                                 <span className="text-[10px] text-zinc-300 uppercase tracking-widest">Click image to zoom</span>
-                                <button onClick={() => setShareOpen(true)} className="share-btn"><FaShare size={10} /> Share</button>
                             </div>
                         </div>
 
@@ -744,7 +742,7 @@ const ProductDetails = () => {
                 </div>
             </div>
 
-            {/* ✅ ZOOM MODAL — properly contained, no overflow */}
+            {/* Zoom Modal */}
             {imgZoomed && (
                 <ZoomModal
                     src={heroImageUrl}

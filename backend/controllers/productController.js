@@ -109,10 +109,12 @@ export const createProduct = async (req, res) => {
 ───────────────────────────────────────────── */
 export const getAllProducts = async (req, res) => {
     try {
-        const { search, category } = req.query;
+        const { search, category, deals } = req.query;
         const query = {};
 
-        if (category) {
+        if (deals === "true") {
+            query.$expr = { $gt: ["$mrp", "$price"] };
+        } else if (category) {
             query.category = normalizeCategory(category);
         }
 

@@ -16,27 +16,28 @@ const STRENGTH_CONFIG = {
 };
 
 const GLOBAL_STYLES = `
-    @import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500;600;700&family=Montserrat:wght@300;400;500;600;700&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;0,700;1,400&family=DM+Sans:wght@300;400;500;600;700&display=swap');
 
+    /* ─── ROOT ─── */
     .mc-root {
         min-height: 100vh;
         display: flex;
         align-items: center;
         justify-content: center;
         padding: 40px 16px;
-        background: #0a0a0f;
+        background: #080810;
         position: relative;
         overflow: hidden;
-        font-family: 'Montserrat', sans-serif;
+        font-family: 'DM Sans', sans-serif;
     }
     .mc-root::before {
         content: '';
         position: absolute;
         inset: 0;
         background:
-            radial-gradient(ellipse 80% 60% at 50% 0%, rgba(180,140,60,0.12) 0%, transparent 70%),
-            radial-gradient(ellipse 60% 40% at 20% 100%, rgba(120,80,20,0.1) 0%, transparent 60%),
-            radial-gradient(ellipse 50% 50% at 80% 80%, rgba(100,60,10,0.08) 0%, transparent 60%);
+            radial-gradient(ellipse 80% 60% at 50% 0%,   rgba(180,140,60,0.14) 0%, transparent 70%),
+            radial-gradient(ellipse 60% 40% at 20% 100%, rgba(120,80,20,0.10) 0%, transparent 60%),
+            radial-gradient(ellipse 50% 50% at 80% 80%,  rgba(100,60,10,0.08) 0%, transparent 60%);
         pointer-events: none;
     }
     .mc-root::after {
@@ -49,164 +50,183 @@ const GLOBAL_STYLES = `
         background-size: 60px 60px;
         pointer-events: none;
     }
+
+    /* ─── CARD ─── */
     .mc-card {
         position: relative;
         width: 100%;
-        max-width: 440px;
-        background: linear-gradient(160deg, #16151e 0%, #0f0e17 50%, #13121a 100%);
-        border: 1px solid rgba(180,140,60,0.25);
-        border-radius: 4px;
-        padding: 48px 44px;
+        max-width: 460px;
+        background: linear-gradient(160deg, #18172200 0%, #13121c 40%, #14131d 100%);
+        background-color: #16151f;
+        border: 1px solid rgba(200,168,75,0.28);
+        border-radius: 6px;
+        padding: 52px 48px;
         box-shadow:
-            0 0 0 1px rgba(180,140,60,0.08),
-            0 40px 80px rgba(0,0,0,0.8),
-            0 0 120px rgba(180,140,60,0.05);
-        animation: fadeUp 0.6s cubic-bezier(0.22,1,0.36,1) forwards;
+            0 0 0 1px rgba(200,168,75,0.07),
+            0 40px 80px rgba(0,0,0,0.85),
+            0 0 120px rgba(200,168,75,0.06);
+        animation: fadeUp 0.55s cubic-bezier(0.22,1,0.36,1) forwards;
         box-sizing: border-box;
     }
     @keyframes fadeUp {
-        from { opacity: 0; transform: translateY(28px); }
-        to   { opacity: 1; transform: translateY(0); }
+        from { opacity: 0; transform: translateY(24px); }
+        to   { opacity: 1; transform: translateY(0);    }
     }
+    /* Corner accents */
     .mc-card::before, .mc-card::after {
         content: '';
         position: absolute;
-        width: 28px;
-        height: 28px;
-        border-color: rgba(180,140,60,0.6);
+        width: 24px; height: 24px;
+        border-color: rgba(200,168,75,0.55);
         border-style: solid;
     }
-    .mc-card::before { top: 12px; left: 12px; border-width: 1px 0 0 1px; }
-    .mc-card::after  { bottom: 12px; right: 12px; border-width: 0 1px 1px 0; }
-    .mc-card-inner { position: relative; }
+    .mc-card::before { top: 14px;    left: 14px;    border-width: 1.5px 0 0 1.5px; }
+    .mc-card::after  { bottom: 14px; right: 14px;   border-width: 0 1.5px 1.5px 0; }
     .mc-card-inner::before, .mc-card-inner::after {
         content: '';
         position: absolute;
-        width: 28px;
-        height: 28px;
-        border-color: rgba(180,140,60,0.6);
+        width: 24px; height: 24px;
+        border-color: rgba(200,168,75,0.55);
         border-style: solid;
     }
-    .mc-card-inner::before { top: -36px; right: -32px; border-width: 1px 1px 0 0; }
-    .mc-card-inner::after  { bottom: -36px; left: -32px; border-width: 0 0 1px 1px; }
+    .mc-card-inner { position: relative; }
+    .mc-card-inner::before { top: -38px;    right: -34px;  border-width: 1.5px 1.5px 0 0; }
+    .mc-card-inner::after  { bottom: -38px; left: -34px;   border-width: 0 0 1.5px 1.5px; }
 
+    /* ─── DIVIDER ─── */
     .mc-divider {
         width: 100%;
         height: 1px;
-        background: linear-gradient(90deg, transparent, rgba(180,140,60,0.5), transparent);
+        background: linear-gradient(90deg, transparent, rgba(200,168,75,0.4), transparent);
         margin: 28px 0;
     }
+
+    /* ─── BRAND ─── */
     .mc-logo {
         display: flex;
         flex-direction: column;
         align-items: center;
-        margin-bottom: 32px;
+        margin-bottom: 28px;
     }
     .mc-logo-icon {
-        width: 52px; height: 52px;
-        border: 1px solid rgba(180,140,60,0.5);
+        width: 54px; height: 54px;
+        border: 1.5px solid rgba(200,168,75,0.45);
         border-radius: 50%;
         display: flex;
         align-items: center;
         justify-content: center;
-        background: linear-gradient(135deg, rgba(180,140,60,0.15), rgba(120,80,20,0.1));
-        margin-bottom: 16px;
+        background: radial-gradient(circle, rgba(200,168,75,0.14), rgba(120,80,20,0.08));
+        margin-bottom: 14px;
         position: relative;
     }
     .mc-logo-icon::before {
         content: '';
         position: absolute;
-        inset: 3px;
+        inset: 4px;
         border-radius: 50%;
-        border: 1px solid rgba(180,140,60,0.2);
+        border: 1px solid rgba(200,168,75,0.18);
     }
+    /* ── BRAND NAME — high-contrast gold ── */
     .mc-brand {
         font-family: 'Cormorant Garamond', serif;
-        font-size: 28px;
-        font-weight: 600;
-        letter-spacing: 6px;
+        font-size: 30px;
+        font-weight: 700;
+        letter-spacing: 7px;
         text-transform: uppercase;
-        color: #c8a84b;
+        color: #d4aa55;          /* brighter gold */
         line-height: 1;
+        text-shadow: 0 0 30px rgba(200,168,75,0.3);
     }
     .mc-brand-sub {
         font-size: 9px;
         letter-spacing: 4px;
-        color: rgba(180,140,60,0.45);
+        color: rgba(200,168,75,0.5);
         text-transform: uppercase;
         font-weight: 500;
-        margin-top: 5px;
+        margin-top: 6px;
     }
+
+    /* ─── HEADINGS ─── */
+    /* Page title — large, bright, readable */
     .mc-heading {
         font-family: 'Cormorant Garamond', serif;
-        font-size: 22px;
-        font-weight: 500;
-        color: #e8d5a3;
+        font-size: 26px;
+        font-weight: 600;
+        color: #f0e4c0;          /* cream-white — very readable */
         text-align: center;
         letter-spacing: 2px;
         margin-bottom: 4px;
+        text-shadow: 0 1px 12px rgba(200,168,75,0.15);
     }
     .mc-subheading {
-        font-size: 9px;
-        color: rgba(200,168,75,0.45);
+        font-size: 10px;
+        color: rgba(200,168,75,0.5);
         text-align: center;
-        letter-spacing: 3px;
+        letter-spacing: 3.5px;
         text-transform: uppercase;
         margin-bottom: 28px;
     }
+
+    /* ─── FORM LABELS ─── */
+    /* Brighter so they're clearly readable */
     .mc-field { margin-bottom: 20px; }
     .mc-label {
         display: block;
-        font-size: 9px;
+        font-size: 10px;
         font-weight: 600;
-        letter-spacing: 3px;
+        letter-spacing: 2.5px;
         text-transform: uppercase;
-        color: rgba(200,168,75,0.55);
+        color: rgba(220,185,90,0.75);   /* was 0.55 — now clearly visible */
         margin-bottom: 8px;
     }
+
+    /* ─── INPUTS ─── */
     .mc-input-wrap { position: relative; }
     .mc-input-icon {
         position: absolute;
         left: 14px;
         top: 50%;
         transform: translateY(-50%);
-        color: rgba(180,140,60,0.35);
+        color: rgba(200,168,75,0.4);
         pointer-events: none;
         transition: color 0.2s;
     }
-    .mc-input-wrap:focus-within .mc-input-icon { color: rgba(180,140,60,0.8); }
+    .mc-input-wrap:focus-within .mc-input-icon { color: rgba(200,168,75,0.85); }
     .mc-input {
         width: 100%;
-        padding: 13px 14px 13px 42px;
-        background: rgba(255,255,255,0.03);
-        border: 1px solid rgba(180,140,60,0.18);
-        border-radius: 2px;
-        color: #e8d5a3;
-        font-family: 'Montserrat', sans-serif;
-        font-size: 13px;
+        padding: 14px 14px 14px 42px;
+        background: rgba(255,255,255,0.04);
+        border: 1px solid rgba(200,168,75,0.2);
+        border-radius: 3px;
+        color: #f0e4c0;              /* bright cream — clearly readable */
+        font-family: 'DM Sans', sans-serif;
+        font-size: 14px;
         font-weight: 400;
-        letter-spacing: 0.5px;
+        letter-spacing: 0.3px;
         outline: none;
         transition: all 0.25s;
         box-sizing: border-box;
     }
-    .mc-input::placeholder { color: rgba(200,168,75,0.18); font-size: 12px; }
+    .mc-input::placeholder {
+        color: rgba(200,168,75,0.22);
+        font-size: 13px;
+    }
     .mc-input:focus {
-        border-color: rgba(180,140,60,0.55);
-        background: rgba(180,140,60,0.04);
-        box-shadow: 0 0 0 1px rgba(180,140,60,0.12), inset 0 1px 3px rgba(0,0,0,0.3);
+        border-color: rgba(200,168,75,0.6);
+        background: rgba(200,168,75,0.05);
+        box-shadow: 0 0 0 2px rgba(200,168,75,0.1), inset 0 1px 3px rgba(0,0,0,0.3);
     }
     .mc-phone-prefix {
         position: absolute;
         left: 42px;
         top: 50%;
         transform: translateY(-50%);
-        font-size: 12px;
+        font-size: 13px;
         font-weight: 600;
-        color: rgba(200,168,75,0.45);
+        color: rgba(200,168,75,0.55);
         pointer-events: none;
     }
-    .mc-input-phone { padding-left: 72px !important; }
+    .mc-input-phone { padding-left: 76px !important; }
     .mc-eye-btn {
         position: absolute;
         right: 12px;
@@ -214,15 +234,17 @@ const GLOBAL_STYLES = `
         transform: translateY(-50%);
         background: none;
         border: none;
-        color: rgba(180,140,60,0.3);
+        color: rgba(200,168,75,0.35);
         cursor: pointer;
         padding: 4px;
         transition: color 0.2s;
     }
-    .mc-eye-btn:hover { color: rgba(180,140,60,0.8); }
+    .mc-eye-btn:hover { color: rgba(200,168,75,0.85); }
+
+    /* ─── PASSWORD STRENGTH ─── */
     .mc-strength-bar {
         height: 2px;
-        background: rgba(255,255,255,0.06);
+        background: rgba(255,255,255,0.07);
         border-radius: 1px;
         margin-top: 8px;
         overflow: hidden;
@@ -233,75 +255,85 @@ const GLOBAL_STYLES = `
         transition: width 0.4s ease, background-color 0.4s ease;
     }
     .mc-strength-label {
-        font-size: 9px;
+        font-size: 10px;
         letter-spacing: 2px;
         text-transform: uppercase;
         margin-top: 5px;
         font-weight: 600;
     }
-    .mc-hint { font-size: 10px; letter-spacing: 1px; margin-top: 5px; font-weight: 500; }
-    .mc-hint-warn    { color: rgba(245,158,11,0.7); }
-    .mc-hint-error   { color: rgba(239,68,68,0.75); }
-    .mc-hint-success { color: rgba(16,185,129,0.75); }
+
+    /* ─── HINTS ─── */
+    .mc-hint          { font-size: 11px; letter-spacing: 0.5px; margin-top: 5px; font-weight: 500; }
+    .mc-hint-warn     { color: #fbbf24; }
+    .mc-hint-error    { color: #f87171; }
+    .mc-hint-success  { color: #34d399; }
+
+    /* ─── ALERTS ─── */
     .mc-alert {
         padding: 12px 16px;
-        border-radius: 2px;
-        font-size: 12px;
-        letter-spacing: 0.3px;
+        border-radius: 3px;
+        font-size: 12.5px;
+        letter-spacing: 0.2px;
         margin-bottom: 20px;
         display: flex;
         align-items: flex-start;
         gap: 10px;
         animation: shake 0.35s ease;
     }
-    .mc-alert-error   { background: rgba(239,68,68,0.06); border: 1px solid rgba(239,68,68,0.2); color: rgba(252,165,165,0.9); }
-    .mc-alert-success { background: rgba(16,185,129,0.06); border: 1px solid rgba(16,185,129,0.2); color: rgba(110,231,183,0.9); }
+    .mc-alert-error   { background: rgba(239,68,68,0.08);  border: 1px solid rgba(239,68,68,0.25);  color: #fca5a5; }
+    .mc-alert-success { background: rgba(16,185,129,0.08); border: 1px solid rgba(16,185,129,0.25); color: #6ee7b7; }
     @keyframes shake {
-        0%,100%{transform:translateX(0)} 20%,60%{transform:translateX(-5px)} 40%,80%{transform:translateX(5px)}
+        0%,100% { transform: translateX(0);  }
+        20%,60%  { transform: translateX(-5px); }
+        40%,80%  { transform: translateX(5px);  }
     }
+
+    /* ─── OTP NOTICE ─── */
     .mc-otp-notice {
-        background: rgba(180,140,60,0.05);
-        border: 1px solid rgba(180,140,60,0.15);
-        border-radius: 2px;
+        background: rgba(200,168,75,0.06);
+        border: 1px solid rgba(200,168,75,0.18);
+        border-radius: 3px;
         padding: 10px 14px;
-        font-size: 11px;
-        color: rgba(200,168,75,0.55);
+        font-size: 11.5px;
+        color: rgba(210,178,90,0.65);
         text-align: center;
         margin-bottom: 24px;
         letter-spacing: 0.3px;
     }
     .mc-otp-input {
         width: 100%;
-        padding: 18px;
-        background: rgba(255,255,255,0.03);
-        border: 1px solid rgba(180,140,60,0.18);
-        border-radius: 2px;
-        color: #c8a84b;
+        padding: 20px;
+        background: rgba(255,255,255,0.04);
+        border: 1px solid rgba(200,168,75,0.2);
+        border-radius: 3px;
+        color: #d4aa55;
         font-family: 'Cormorant Garamond', serif;
-        font-size: 34px;
+        font-size: 36px;
         font-weight: 600;
         text-align: center;
-        letter-spacing: 14px;
+        letter-spacing: 16px;
         outline: none;
         transition: all 0.25s;
         box-sizing: border-box;
     }
-    .mc-otp-input::placeholder { color: rgba(180,140,60,0.13); letter-spacing: 10px; }
+    .mc-otp-input::placeholder { color: rgba(200,168,75,0.15); letter-spacing: 10px; }
     .mc-otp-input:focus {
-        border-color: rgba(180,140,60,0.5);
-        background: rgba(180,140,60,0.04);
-        box-shadow: 0 0 0 1px rgba(180,140,60,0.12);
+        border-color: rgba(200,168,75,0.55);
+        background: rgba(200,168,75,0.05);
+        box-shadow: 0 0 0 2px rgba(200,168,75,0.1);
     }
+
+    /* ─── BUTTON ─── */
     .mc-btn {
         width: 100%;
-        padding: 15px;
-        background: linear-gradient(135deg, #b8943c 0%, #e8d080 50%, #b8943c 100%);
+        padding: 16px;
+        background: linear-gradient(135deg, #b8943c 0%, #e8d070 50%, #b8943c 100%);
         background-size: 200% 100%;
         border: none;
-        border-radius: 2px;
+        border-radius: 3px;
         color: #0a0a0f;
-        font-family: 'Montserrat', sans-serif;
-        font-size: 10px;
+        font-family: 'DM Sans', sans-serif;
+        font-size: 11px;
         font-weight: 700;
         letter-spacing: 5px;
         text-transform: uppercase;
@@ -324,9 +356,13 @@ const GLOBAL_STYLES = `
         transition: left 0.55s;
     }
     .mc-btn:hover:not(:disabled)::before { left: 100%; }
-    .mc-btn:hover:not(:disabled) { background-position: 100% 0; box-shadow: 0 8px 32px rgba(180,140,60,0.3); }
+    .mc-btn:hover:not(:disabled) {
+        background-position: 100% 0;
+        box-shadow: 0 8px 32px rgba(200,168,75,0.32);
+    }
     .mc-btn:active:not(:disabled) { transform: scale(0.99); }
     .mc-btn:disabled { opacity: 0.35; cursor: not-allowed; }
+
     .mc-spinner {
         width: 14px; height: 14px;
         border: 2px solid rgba(0,0,0,0.2);
@@ -335,29 +371,41 @@ const GLOBAL_STYLES = `
         animation: spin 0.7s linear infinite;
     }
     @keyframes spin { to { transform: rotate(360deg); } }
-    .mc-footer-text { font-size: 11px; color: rgba(200,168,75,0.35); text-align: center; letter-spacing: 0.5px; }
+
+    /* ─── FOOTER TEXT / LINKS ─── */
+    .mc-footer-text {
+        font-size: 12px;
+        color: rgba(200,168,75,0.45);
+        text-align: center;
+        letter-spacing: 0.3px;
+    }
     .mc-link {
-        color: rgba(200,168,75,0.7);
+        color: rgba(210,178,90,0.8);
         font-weight: 600;
         text-decoration: none;
-        letter-spacing: 1px;
+        letter-spacing: 0.5px;
         transition: color 0.2s;
         cursor: pointer;
         background: none;
         border: none;
-        font-family: 'Montserrat', sans-serif;
+        font-family: 'DM Sans', sans-serif;
         font-size: inherit;
     }
-    .mc-link:hover { color: #c8a84b; }
+    .mc-link:hover  { color: #d4aa55; }
     .mc-link:disabled { opacity: 0.4; cursor: not-allowed; }
+
     .mc-security {
         text-align: center;
         font-size: 9px;
         letter-spacing: 3px;
-        color: rgba(180,140,60,0.22);
+        color: rgba(200,168,75,0.22);
         text-transform: uppercase;
-        margin-top: 20px;
+        margin-top: 22px;
     }
+
+    /* OTP step email display */
+    .mc-otp-email-label { text-align:center; font-size:12px; color:rgba(200,168,75,0.5); margin-bottom:5px; }
+    .mc-otp-email-val   { text-align:center; font-size:14px; font-weight:600; color:#d4aa55; margin-bottom:22px; letter-spacing:0.5px; }
 `;
 
 const AlertBox = ({ type, children }) => (
@@ -461,7 +509,7 @@ const Register = () => {
                     {/* Brand */}
                     <div className="mc-logo">
                         <div className="mc-logo-icon">
-                            <FaMapMarkedAlt size={20} style={{ color: "#c8a84b" }} />
+                            <FaMapMarkedAlt size={22} style={{ color: "#d4aa55" }} />
                         </div>
                         <div className="mc-brand">Urbexon</div>
                         <div className="mc-brand-sub">Explore the unknown</div>
@@ -481,7 +529,7 @@ const Register = () => {
                                 <div className="mc-field">
                                     <label className="mc-label">Full Name</label>
                                     <div className="mc-input-wrap">
-                                        <FaUser className="mc-input-icon" size={11} />
+                                        <FaUser className="mc-input-icon" size={12} />
                                         <input name="name" type="text" placeholder="e.g. Rahul Verma"
                                             value={form.name} onChange={onChange} className="mc-input" />
                                     </div>
@@ -491,7 +539,7 @@ const Register = () => {
                                 <div className="mc-field">
                                     <label className="mc-label">Email Address</label>
                                     <div className="mc-input-wrap">
-                                        <FaEnvelope className="mc-input-icon" size={11} />
+                                        <FaEnvelope className="mc-input-icon" size={12} />
                                         <input name="email" type="email" placeholder="your@email.com"
                                             value={form.email} onChange={onChange} className="mc-input" />
                                     </div>
@@ -501,7 +549,7 @@ const Register = () => {
                                 <div className="mc-field">
                                     <label className="mc-label">Mobile Number</label>
                                     <div className="mc-input-wrap">
-                                        <FaPhone className="mc-input-icon" size={11} />
+                                        <FaPhone className="mc-input-icon" size={12} />
                                         <span className="mc-phone-prefix">+91</span>
                                         <input name="phone" type="tel" inputMode="numeric"
                                             maxLength={10} placeholder="9876543210"
@@ -515,7 +563,7 @@ const Register = () => {
                                 <div className="mc-field">
                                     <label className="mc-label">Password</label>
                                     <div className="mc-input-wrap">
-                                        <FaLock className="mc-input-icon" size={11} />
+                                        <FaLock className="mc-input-icon" size={12} />
                                         <input name="password"
                                             type={showPassword ? "text" : "password"}
                                             placeholder="Min. 8 characters"
@@ -523,7 +571,7 @@ const Register = () => {
                                             style={{ paddingRight: 44 }}
                                             className="mc-input" />
                                         <button type="button" onClick={togglePassword} className="mc-eye-btn">
-                                            {showPassword ? <FaEyeSlash size={12} /> : <FaEye size={12} />}
+                                            {showPassword ? <FaEyeSlash size={13} /> : <FaEye size={13} />}
                                         </button>
                                     </div>
                                     {passwordStrength && (
@@ -566,12 +614,8 @@ const Register = () => {
                             <div className="mc-heading">Verify Identity</div>
                             <div className="mc-subheading">One-time passcode</div>
 
-                            <p style={{ textAlign: "center", fontSize: 12, color: "rgba(200,168,75,0.45)", marginBottom: 6 }}>
-                                Code dispatched to
-                            </p>
-                            <p style={{ textAlign: "center", fontSize: 13, fontWeight: 600, color: "#c8a84b", marginBottom: 20, letterSpacing: 1 }}>
-                                {form.email}
-                            </p>
+                            <p className="mc-otp-email-label">Code dispatched to</p>
+                            <p className="mc-otp-email-val">{form.email}</p>
 
                             <div className="mc-otp-notice">
                                 ◆ &nbsp;Check your spam / junk folder if not received
@@ -607,7 +651,7 @@ const Register = () => {
                                     </button>
                                 </p>
                                 <button onClick={goBackToRegister} className="mc-link"
-                                    style={{ fontSize: 10, letterSpacing: 2, color: "rgba(180,140,60,0.28)" }}>
+                                    style={{ fontSize: 10, letterSpacing: 2, color: "rgba(200,168,75,0.35)" }}>
                                     ← Change Email
                                 </button>
                             </div>
