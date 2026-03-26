@@ -45,16 +45,21 @@ const allowedOrigins = [
     "https://urbexon.in",
     "https://www.urbexon.in",
     "https://admin.urbexon.in",
-    "urban-dev.vercel.app",
-
-
+    "https://urban-dev.vercel.app",
 ];
+
+// allow all vercel preview domains
+const isVercelPreview = (origin) =>
+    origin && origin.includes(".vercel.app");
 
 app.use(
     cors({
         origin: function (origin, callback) {
             if (!origin) return callback(null, true);
-            if (allowedOrigins.includes(origin)) return callback(null, true);
+
+            if (allowedOrigins.includes(origin) || isVercelPreview(origin)) {
+                return callback(null, true);
+            }
 
             console.warn("❌ CORS BLOCKED:", origin);
             return callback(new Error("CORS not allowed"));
@@ -62,6 +67,19 @@ app.use(
         credentials: true,
     })
 );
+
+// app.use(
+//     cors({
+//         origin: function (origin, callback) {
+//             if (!origin) return callback(null, true);
+//             if (allowedOrigins.includes(origin)) return callback(null, true);
+
+//             console.warn("❌ CORS BLOCKED:", origin);
+//             return callback(new Error("CORS not allowed"));
+//         },
+//         credentials: true,
+//     })
+// );
 
 /* ─────────────────────────────
    RATE LIMIT
