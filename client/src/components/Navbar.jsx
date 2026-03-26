@@ -375,7 +375,7 @@ const Navbar = () => {
                                 </>
                             ) : (
                                 <div style={{ display: "flex", gap: 8, paddingTop: 10 }}>
-                                    <button onClick={() => go("/login")} className="dsin" style={{ flex: 1 }}>Sign In</button>
+                                    <button onClick={() => go("/login")} className="dsin" style={{ flex: 1 }}>Sign In Nikhil</button>
                                     <button onClick={() => go("/register")} className="dreg" style={{ flex: 1 }}>Register</button>
                                 </div>
                             )}
