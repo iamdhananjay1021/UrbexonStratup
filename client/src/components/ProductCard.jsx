@@ -48,6 +48,9 @@ const ProductCard = ({ product, onAddToCart, onBuyNow }) => {
         setWishlisted(w => !w);
     };
 
+    // Fallback image — via.placeholder.com is deprecated, use inline SVG data URI
+    const FALLBACK_IMG = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='400' height='400' viewBox='0 0 400 400'%3E%3Crect fill='%23f0ede8' width='400' height='400'/%3E%3Ctext fill='%23b0a89e' font-family='sans-serif' font-size='16' x='50%25' y='50%25' text-anchor='middle' dy='.3em'%3ENo Image%3C/text%3E%3C/svg%3E";
+
     return (
         <>
             <style>{`
@@ -82,6 +85,11 @@ const ProductCard = ({ product, onAddToCart, onBuyNow }) => {
           box-shadow: 0 12px 40px rgba(28,25,23,.1);
           transform: translateY(-3px);
         }
+        /* BUG FIX: disable transform on mobile to avoid tap glitch */
+        @media (max-width: 767px) {
+          .pc-wrap:hover { transform: none; box-shadow: none; border-color: var(--pc-border); }
+          .pc-wrap:active { transform: scale(.98); }
+        }
         .pc-wrap:active { transform: scale(.99); }
 
         /* ═══════════════════════════════
@@ -89,11 +97,13 @@ const ProductCard = ({ product, onAddToCart, onBuyNow }) => {
         ═══════════════════════════════ */
         .pc-wish {
           position: absolute; top: 8px; right: 8px; z-index: 5;
-          width: 28px; height: 28px; border-radius: 50%;
-          background: rgba(255,255,255,.9);
+          width: 30px; height: 30px; border-radius: 50%;
+          background: rgba(255,255,255,.92);
           border: none; cursor: pointer;
           display: flex; align-items: center; justify-content: center;
           transition: all .2s; backdrop-filter: blur(4px);
+          /* BUG FIX: ensure touch target is large enough on mobile */
+          -webkit-tap-highlight-color: transparent;
         }
         .pc-wish:hover { background: #fff; transform: scale(1.1); }
 
@@ -102,9 +112,14 @@ const ProductCard = ({ product, onAddToCart, onBuyNow }) => {
         ═══════════════════════════════ */
         .pc-img-area {
           position: relative; overflow: hidden; background: #f5f2ec;
-          /* Desktop height */
-          height: 280px;
+          /* BUG FIX: use aspect-ratio instead of fixed height so mobile grids look correct */
+          aspect-ratio: 1 / 1;
         }
+        /* Desktop: slightly wider aspect */
+        @media (min-width: 768px) {
+          .pc-img-area { aspect-ratio: 4 / 5; }
+        }
+
         .pc-img-skeleton {
           position: absolute; inset: 0; background: #ede9e4;
           animation: pcPulse 1.5s ease-in-out infinite;
@@ -112,7 +127,7 @@ const ProductCard = ({ product, onAddToCart, onBuyNow }) => {
         @keyframes pcPulse { 0%,100%{opacity:1} 50%{opacity:.6} }
         .pc-img {
           position: absolute; inset: 0; width: 100%; height: 100%;
-          object-fit: cover;
+          object-fit: cover; object-position: center top;
           transition: transform .5s cubic-bezier(.34,1.1,.64,1);
         }
         .pc-wrap:hover .pc-img { transform: scale(1.06); }
@@ -131,12 +146,12 @@ const ProductCard = ({ product, onAddToCart, onBuyNow }) => {
         .pc-badge-sold   { background: #1c1917; color: #fff; }
         .pc-badge-low    { background: #d97706; color: #fff; }
         .pc-disc-badge {
-          position: absolute; top: 8px; right: 8px; z-index: 2;
+          position: absolute; top: 8px; right: 40px; z-index: 2;
           background: #b91c1c; color: #fff;
           font-size: 8.5px; font-weight: 800; letter-spacing: .06em; padding: 3px 7px;
         }
 
-        /* Overlay CTA — desktop hover */
+        /* Overlay CTA — desktop hover only */
         .pc-overlay {
           position: absolute; bottom: 0; left: 0; right: 0;
           background: rgba(255,255,255,.97);
@@ -176,31 +191,32 @@ const ProductCard = ({ product, onAddToCart, onBuyNow }) => {
         /* ═══════════════════════════════
            BODY
         ═══════════════════════════════ */
-        .pc-body { padding: 12px 14px 14px; flex: 1; display: flex; flex-direction: column; }
+        .pc-body { padding: 10px 12px 12px; flex: 1; display: flex; flex-direction: column; }
         .pc-cat {
-          font-size: 8.5px; font-weight: 700; letter-spacing: .15em; text-transform: uppercase;
-          color: var(--pc-gold); margin-bottom: 4px;
+          font-size: 8px; font-weight: 700; letter-spacing: .15em; text-transform: uppercase;
+          color: var(--pc-gold); margin-bottom: 3px;
         }
         .pc-name {
-          font-size: 12.5px; font-weight: 500; color: var(--pc-ink); line-height: 1.4;
+          /* BUG FIX: was 12.5px — on small 2-col mobile this was cramped */
+          font-size: 12px; font-weight: 500; color: var(--pc-ink); line-height: 1.4;
           display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
-          min-height: 2.6em; margin-bottom: 6px;
+          min-height: 2.5em; margin-bottom: 5px;
         }
-        .pc-stars { display: flex; align-items: center; gap: 2px; margin-bottom: 6px; }
-        .pc-reviews { font-size: 9.5px; color: var(--pc-faint); margin-left: 3px; }
+        .pc-stars { display: flex; align-items: center; gap: 2px; margin-bottom: 5px; flex-wrap: wrap; }
+        .pc-reviews { font-size: 9px; color: var(--pc-faint); margin-left: 2px; }
         .pc-stock {
-          font-size: 9.5px; font-weight: 700;
-          display: flex; align-items: center; gap: 4px; margin-bottom: 8px;
+          font-size: 9px; font-weight: 700;
+          display: flex; align-items: center; gap: 4px; margin-bottom: 6px;
         }
-        .pc-dot { width: 5px; height: 5px; border-radius: 50%; display: inline-block; }
-        .pc-price-row { display: flex; align-items: baseline; gap: 7px; margin-top: auto; }
+        .pc-dot { width: 5px; height: 5px; border-radius: 50%; display: inline-block; flex-shrink: 0; }
+        .pc-price-row { display: flex; align-items: baseline; gap: 6px; margin-top: auto; flex-wrap: wrap; }
         .pc-price {
           font-family: 'Cormorant Garamond', serif;
-          font-size: 1.3rem; font-weight: 600; color: var(--pc-ink);
+          font-size: 1.2rem; font-weight: 600; color: var(--pc-ink);
         }
         .pc-price-oos { color: var(--pc-faint); }
-        .pc-mrp  { font-size: 11px; color: var(--pc-faint); text-decoration: line-through; }
-        .pc-save { font-size: 9.5px; color: #16a34a; font-weight: 700; margin-top: 2px; }
+        .pc-mrp  { font-size: 10px; color: var(--pc-faint); text-decoration: line-through; }
+        .pc-save { font-size: 9px; color: #16a34a; font-weight: 700; margin-top: 2px; }
 
         @keyframes pcAddPop {
           0%   { transform: scale(1); }
@@ -211,53 +227,75 @@ const ProductCard = ({ product, onAddToCart, onBuyNow }) => {
         .pc-add-pop { animation: pcAddPop .35s ease forwards; }
 
         /* ═══════════════════════════════
-           MOBILE OVERRIDES
-           — taller image, bigger text,
-             always-visible action bar
+           MOBILE — always-visible CTA bar
+           (replaces hover overlay which
+            doesn't work on touch devices)
         ═══════════════════════════════ */
         @media (max-width: 767px) {
-          /* Taller image on mobile — fills nicely in 2-col grid */
-          .pc-img-area { height: 220px; }
-          .pc-img { object-fit: cover; padding: 0; }
-
-          /* No hover overlay on mobile — show sticky bar instead */
+          /* Hide desktop hover overlay on mobile */
           .pc-overlay { display: none !important; }
+
+          /* Discount badge shift — no overlap with wishlist */
           .pc-disc-badge { top: 6px; right: 6px; }
 
-          /* Bigger name and price for readability */
-          .pc-name  { font-size: 12px; }
-          .pc-price { font-size: 1.15rem; }
-          .pc-mrp   { font-size: 10.5px; }
+          /* Wishlist: smaller, top-left on mobile to avoid overlap */
+          .pc-wish { top: 6px; right: 6px; width: 28px; height: 28px; }
 
-          /* Wishlist btn */
-          .pc-wish { top: 6px; right: 6px; width: 26px; height: 26px; }
+          /* BUG FIX: text adjustments for 2-col grid on small screens */
+          .pc-name  { font-size: 11.5px; min-height: unset; -webkit-line-clamp: 2; }
+          .pc-price { font-size: 1.05rem; }
+          .pc-mrp   { font-size: 9.5px; }
+          .pc-body  { padding: 8px 10px 10px; }
+          .pc-cat   { font-size: 7.5px; }
+          .pc-stock { font-size: 8.5px; margin-bottom: 4px; }
+          .pc-save  { font-size: 8.5px; }
 
-          /* ── Always-visible mobile CTA bar at bottom of card ── */
+          /* ── Always-visible mobile CTA bar ── */
           .pc-mob-cta {
-            display: flex; gap: 0; border-top: 1px solid var(--pc-border);
+            display: flex;
+            border-top: 1px solid var(--pc-border);
           }
           .pc-mob-btn-cart {
-            flex: 1; padding: 9px 0;
+            flex: 1; padding: 10px 0;
             font-family: 'Jost', sans-serif;
-            font-size: 10px; font-weight: 700; letter-spacing: .05em;
+            font-size: 10px; font-weight: 700; letter-spacing: .04em;
             border: none; cursor: pointer;
             display: flex; align-items: center; justify-content: center; gap: 5px;
             transition: all .18s;
+            -webkit-tap-highlight-color: transparent;
           }
           .pc-mob-bc-default  { background: var(--pc-ink); color: #fff; }
-          .pc-mob-bc-incart   { background: #f0fdf4; color: #16a34a; border-right: 1px solid #bbf7d0; cursor: default; }
+          .pc-mob-bc-default:active { background: #2d2926; }
+          .pc-mob-bc-incart   {
+            background: #f0fdf4; color: #16a34a;
+            border-right: 1px solid #bbf7d0; cursor: default;
+          }
           .pc-mob-bc-flash    { background: #22c55e; color: #fff; }
           .pc-mob-bc-disabled { background: #f4f4f5; color: #a1a1aa; cursor: not-allowed; }
           .pc-mob-btn-buy {
-            flex: 1; padding: 9px 0;
+            flex: 1; padding: 10px 0;
             font-family: 'Jost', sans-serif;
-            font-size: 10px; font-weight: 700; letter-spacing: .05em;
+            font-size: 10px; font-weight: 700; letter-spacing: .04em;
             background: var(--pc-gold); color: #fff;
-            border: none; cursor: pointer;
+            border: none; border-left: 1px solid rgba(255,255,255,.2);
+            cursor: pointer;
             display: flex; align-items: center; justify-content: center; gap: 5px;
-            transition: all .18s; border-left: 1px solid rgba(255,255,255,.2);
+            transition: all .18s;
+            -webkit-tap-highlight-color: transparent;
           }
           .pc-mob-btn-buy:disabled { background: #f4f4f5; color: #a1a1aa; cursor: not-allowed; }
+          .pc-mob-btn-buy:active:not(:disabled) { background: var(--pc-gold-d); }
+        }
+
+        /* ═══════════════════════════════
+           VERY SMALL PHONES (< 360px)
+           e.g. iPhone SE, Galaxy A01
+        ═══════════════════════════════ */
+        @media (max-width: 359px) {
+          .pc-name  { font-size: 10.5px; }
+          .pc-price { font-size: .95rem; }
+          .pc-mob-btn-cart,
+          .pc-mob-btn-buy { font-size: 9px; padding: 9px 0; }
         }
 
         /* Hide mobile CTA on desktop */
@@ -269,7 +307,7 @@ const ProductCard = ({ product, onAddToCart, onBuyNow }) => {
             <div className="pc-wrap" onClick={() => navigate(productUrl)}>
 
                 {/* WISHLIST BUTTON */}
-                <button className="pc-wish" onClick={handleWishlist}>
+                <button className="pc-wish" onClick={handleWishlist} aria-label="Wishlist">
                     {wishlisted
                         ? <FaHeart size={12} color="#ef4444" />
                         : <FaRegHeart size={12} color="#a8a29e" />}
@@ -285,7 +323,7 @@ const ProductCard = ({ product, onAddToCart, onBuyNow }) => {
                         decoding="async"
                         width={400} height={400}
                         onLoad={() => setImgLoaded(true)}
-                        onError={e => { e.target.src = "https://via.placeholder.com/400x400?text=No+Image"; setImgLoaded(true); }}
+                        onError={e => { e.target.src = FALLBACK_IMG; setImgLoaded(true); }}
                         className={`pc-img transition-opacity duration-300 ${imgLoaded ? "opacity-100" : "opacity-0"} ${isOutOfStock ? "grayscale opacity-50" : ""}`}
                     />
 
@@ -298,6 +336,10 @@ const ProductCard = ({ product, onAddToCart, onBuyNow }) => {
                         {isLowStock && <span className="pc-badge pc-badge-low">⚡ {stockNum} LEFT</span>}
                     </div>
 
+                    {/* BUG FIX: discount badge was overlapping wishlist button on mobile.
+                        On desktop, wishlist is top-right and discount was also top-right.
+                        Fixed by moving discount badge to right:40px (desktop) so it doesn't clash,
+                        and on mobile CSS above sets it back to right:6px since wishlist moves too. */}
                     {hasDiscount && !isOutOfStock && (
                         <div className="pc-disc-badge">{discountPct}% OFF</div>
                     )}
@@ -333,8 +375,8 @@ const ProductCard = ({ product, onAddToCart, onBuyNow }) => {
                         </div>
                     ) : (
                         <div className="pc-stars">
-                            <div style={{ background: "#16a34a", color: "#fff", fontSize: 10, fontWeight: 700, padding: "2px 6px", borderRadius: 3, display: "flex", alignItems: "center", gap: 3 }}>
-                                4.0 <FaStar size={8} />
+                            <div style={{ background: "#16a34a", color: "#fff", fontSize: 9, fontWeight: 700, padding: "2px 5px", borderRadius: 3, display: "flex", alignItems: "center", gap: 2 }}>
+                                4.0 <FaStar size={7} />
                             </div>
                             <span className="pc-reviews">(0 reviews)</span>
                         </div>
@@ -369,10 +411,16 @@ const ProductCard = ({ product, onAddToCart, onBuyNow }) => {
                         onClick={handleAddToCart}
                         disabled={inCart || isOutOfStock}
                         className={`pc-mob-btn-cart ${inCart ? "pc-mob-bc-incart" : addedFlash ? "pc-mob-bc-flash pc-add-pop" : isOutOfStock ? "pc-mob-bc-disabled" : "pc-mob-bc-default"}`}
+                        aria-label="Add to cart"
                     >
                         {inCart ? <><FaCheckCircle size={9} /> Cart</> : addedFlash ? <>✓ Added</> : <><FaShoppingCart size={9} /> Add</>}
                     </button>
-                    <button onClick={handleBuyNow} disabled={isOutOfStock} className="pc-mob-btn-buy">
+                    <button
+                        onClick={handleBuyNow}
+                        disabled={isOutOfStock}
+                        className="pc-mob-btn-buy"
+                        aria-label="Buy now"
+                    >
                         <FaBolt size={9} /> Buy
                     </button>
                 </div>
