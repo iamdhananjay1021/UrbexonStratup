@@ -422,7 +422,7 @@ const Navbar = () => {
                     <button onClick={() => go("/")} style={{ background: "none", border: "none", cursor: "pointer", display: "flex", alignItems: "center", gap: 10, flexShrink: 0 }}>
                         <LogoMark />
                         <span className="nxlg" style={{ fontWeight: 700, fontSize: 22, letterSpacing: ".04em", color: "var(--navy)" }}>
-                            Shivam<span style={{ color: "var(--g1)" }}>EXON</span>
+                            URB<span style={{ color: "var(--g1)" }}>EXON</span>
 
                         </span>
                     </button>
