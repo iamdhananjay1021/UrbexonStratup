@@ -1,6 +1,6 @@
 /**
  * orderRoutes.js
- * All order-related routes (user + admin)
+ * ✅ Added /pricing endpoint for frontend to fetch server-calculated prices
  */
 
 import express from "express";
@@ -15,18 +15,16 @@ import {
     retryRefund,
     getRefundQueue,
     getFlaggedOrders,
-    // TODO (3 months): Re-enable when Shiprocket webhook integration is active
-    // shiprocketWebhook,
+    getCheckoutPricing,
 } from "../controllers/orderController.js";
 import { protect, adminOnly } from "../middlewares/authMiddleware.js";
 import { downloadInvoice } from "../controllers/invoiceController.js";
 
 const router = express.Router();
 
-/* ═══════════════════════════════════════
-   ⚠️ IMPORTANT: Specific named routes MUST
-   come before dynamic /:id routes
-═══════════════════════════════════════ */
+/* ── PRICING (before /:id) ── */
+// Frontend calls this to get server-calculated prices before showing checkout
+router.post("/pricing", protect, getCheckoutPricing);
 
 /* ── USER ROUTES ── */
 router.post("/", protect, createOrder);
@@ -47,24 +45,10 @@ router.patch("/:id/cancel", protect, cancelOrder);
 router.put("/:id/refund/process", protect, adminOnly, processRefund);
 router.put("/:id/refund/retry", protect, adminOnly, retryRefund);
 
-/* ── INVOICE — sirf order owner ya admin/owner ── */
-// ✅ controller mein isOwner || isAdmin check hai, route pe protect zaroori hai
-// Note: adminOnly nahi kyunki user bhi apna invoice download kar sakta hai
-// Controller already handles both cases securely
+/* ── INVOICE ── */
 router.get("/:id/invoice", protect, downloadInvoice);
 
 /* ── GET SINGLE ORDER — MUST be last ── */
 router.get("/:id", protect, getOrderById);
-
-/*
- * ─────────────────────────────────────────────────────────────
- * TODO (3 months): Re-enable Shiprocket webhook when integration
- * is active. This route receives real-time shipment status
- * updates (AWB assigned, shipped, delivered, etc.) from
- * Shiprocket and syncs them to the order document.
- * No auth middleware — Shiprocket calls this externally.
- * ─────────────────────────────────────────────────────────────
- * router.post("/shipping/webhook", shiprocketWebhook);
- */
 
 export default router;

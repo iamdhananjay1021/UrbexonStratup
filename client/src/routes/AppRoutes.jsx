@@ -13,7 +13,7 @@ import Login from "../pages/Login";
 // Lazy loaded
 const Register = lazy(() => import("../pages/Register"));
 const Cart = lazy(() => import("../pages/Cart"));
-const Checkout = lazy(() => import("../pages/Checkout"));
+const Checkout = lazy(() => import("../components/checkout/Checkout"));
 const MyOrders = lazy(() => import("../pages/MyOrders"));
 const OrderDetails = lazy(() => import("../pages/OrderDetails"));
 const OrderSuccess = lazy(() => import("../pages/OrderSuccess"));
@@ -26,7 +26,7 @@ const PrivacyPolicy = lazy(() => import("../pages/PrivacyPolicy"));
 const TermsConditions = lazy(() => import("../pages/TermsConditions"));
 const RefundPolicy = lazy(() => import("../pages/RefundPolicy"));
 const ContactUs = lazy(() => import("../pages/Contactus"));
-
+// const NotFound = lazy(() => import("../pages/NotFound")); // ✅ Add this page
 
 // 🔄 Loader
 const PageLoader = () => (
@@ -34,7 +34,6 @@ const PageLoader = () => (
         <div className="w-10 h-10 border-4 border-amber-400 border-t-transparent rounded-full animate-spin" />
     </div>
 );
-
 
 // 🔝 Scroll Fix
 const ScrollToTop = () => {
@@ -45,50 +44,111 @@ const ScrollToTop = () => {
     return null;
 };
 
-
 const AppRoutes = () => {
     return (
         <>
             <ScrollToTop />
 
             <Suspense fallback={<PageLoader />}>
-                <PageTransition>
 
-                    <Routes>
+                <Routes>
 
-                        {/* ❌ WITHOUT Navbar/Footer (Auth Pages) */}
-                        <Route path="/login" element={<Login />} />
-                        <Route path="/register" element={<Register />} />
-                        <Route path="/forgot-password" element={<ForgotPassword />} />
-                        <Route path="/reset-password/:token" element={<ResetPassword />} />
+                    {/* ============================= */}
+                    {/* ❌ NO NAVBAR / FOOTER ROUTES */}
+                    {/* ============================= */}
 
-                        {/* ✅ WITH Navbar + Footer */}
-                        <Route element={<MainLayout />}>
+                    <Route path="/login" element={<Login />} />
+                    <Route path="/register" element={<Register />} />
+                    <Route path="/forgot-password" element={<ForgotPassword />} />
+                    <Route path="/reset-password/:token" element={<ResetPassword />} />
 
-                            <Route path="/" element={<Home />} />
-                            <Route path="/products/:id" element={<ProductDetails />} />
-                            <Route path="/privacy-policy" element={<PrivacyPolicy />} />
-                            <Route path="/terms-conditions" element={<TermsConditions />} />
-                            <Route path="/refund-policy" element={<RefundPolicy />} />
-                            <Route path="/contact" element={<ContactUs />} />
+                    {/* ✅ Checkout (Protected + Clean UI) */}
+                    <Route element={<ProtectedRoute />}>
+                        <Route path="/checkout" element={<Checkout />} />
+                    </Route>
 
-                            {/* Protected */}
-                            <Route element={<ProtectedRoute />}>
-                                <Route path="/cart" element={<Cart />} />
-                                <Route path="/checkout" element={<Checkout />} />
-                                <Route path="/orders" element={<MyOrders />} />
-                                <Route path="/orders/:id" element={<OrderDetails />} />
-                                <Route path="/order-success/:id" element={<OrderSuccess />} />
-                                <Route path="/profile" element={<Profile />} />
-                            </Route>
+                    {/* ✅ Order Success (no distractions) */}
+                    <Route path="/order-success/:id" element={<OrderSuccess />} />
 
+
+                    {/* ============================= */}
+                    {/* ✅ WITH NAVBAR + FOOTER */}
+                    {/* ============================= */}
+
+                    <Route element={<MainLayout />}>
+
+                        {/* Wrap only main pages in transition */}
+                        <Route
+                            path="/"
+                            element={
+                                <PageTransition>
+                                    <Home />
+                                </PageTransition>
+                            }
+                        />
+
+                        <Route
+                            path="/products/:id"
+                            element={
+                                <PageTransition>
+                                    <ProductDetails />
+                                </PageTransition>
+                            }
+                        />
+
+                        <Route
+                            path="/privacy-policy"
+                            element={
+                                <PageTransition>
+                                    <PrivacyPolicy />
+                                </PageTransition>
+                            }
+                        />
+
+                        <Route
+                            path="/terms-conditions"
+                            element={
+                                <PageTransition>
+                                    <TermsConditions />
+                                </PageTransition>
+                            }
+                        />
+
+                        <Route
+                            path="/refund-policy"
+                            element={
+                                <PageTransition>
+                                    <RefundPolicy />
+                                </PageTransition>
+                            }
+                        />
+
+                        <Route
+                            path="/contact"
+                            element={
+                                <PageTransition>
+                                    <ContactUs />
+                                </PageTransition>
+                            }
+                        />
+
+                        {/* 🔒 Protected inside layout */}
+                        <Route element={<ProtectedRoute />}>
+                            <Route path="/cart" element={<Cart />} />
+                            <Route path="/orders" element={<MyOrders />} />
+                            <Route path="/orders/:id" element={<OrderDetails />} />
+                            <Route path="/profile" element={<Profile />} />
                         </Route>
 
-                        <Route path="*" element={<Navigate to="/" replace />} />
+                    </Route>
 
-                    </Routes>
+                    {/* ============================= */}
+                    {/* ❌ 404 PAGE */}
+                    {/* ============================= */}
+                    {/* <Route path="*" element={<NotFound />} /> */}
 
-                </PageTransition>
+                </Routes>
+
             </Suspense>
         </>
     );
