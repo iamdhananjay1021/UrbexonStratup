@@ -1,0 +1,34 @@
+import express from "express";
+import {
+    getActiveCategories,
+    getAllCategories,
+    getSingleCategory,
+    createCategory,
+    updateCategory,
+    deleteCategory,
+} from "../controllers/categoryController.js";
+import { protect, adminOnly } from "../middlewares/authMiddleware.js";
+import upload from "../middlewares/upload.middleware.js";
+
+const router = express.Router();
+
+/* ─────────────────────────────────────────────
+   PUBLIC ROUTES
+───────────────────────────────────────────── */
+router.get("/", getActiveCategories);
+
+/* ─────────────────────────────────────────────
+   ADMIN ROUTES — specific pehle, dynamic baad mein
+───────────────────────────────────────────── */
+router.get("/admin/all", protect, adminOnly, getAllCategories);  // ✅ specific pehle
+
+router.post("/", protect, adminOnly, upload.single("image"), createCategory);
+router.put("/:id", protect, adminOnly, upload.single("image"), updateCategory);
+router.delete("/:id", protect, adminOnly, deleteCategory);
+
+/* ─────────────────────────────────────────────
+   DYNAMIC ROUTE — sabse baad mein
+───────────────────────────────────────────── */
+router.get("/:id", getSingleCategory);  // ✅ dynamic baad mein
+
+export default router;

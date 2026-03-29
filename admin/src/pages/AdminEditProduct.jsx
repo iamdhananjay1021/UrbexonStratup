@@ -19,6 +19,7 @@ const inputStyle = {
     outline: "none", transition: "border-color 0.2s",
     boxSizing: "border-box",
 };
+
 const InputField = ({ label, hint, children }) => (
     <div>
         <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 6 }}>
@@ -35,6 +36,9 @@ const AdminEditProduct = () => {
     const [form, setForm] = useState({
         name: "", description: "", price: "", mrp: "",
         category: "", isCustomizable: false, tags: "", stock: "",
+        // ✅ DEAL FIELDS
+        isDeal: false,
+        dealEndsAt: "",
     });
     const [images, setImages] = useState([]);
     const [currentImages, setCurrentImages] = useState([]);
@@ -51,16 +55,24 @@ const AdminEditProduct = () => {
         setTimeout(() => setToast(null), 3000);
     };
 
+    // ================= FETCH =================
     useEffect(() => {
         const fetchProduct = async () => {
             try {
                 setLoading(true);
                 const { data } = await api.get(`/products/${id}`);
                 setForm({
-                    name: data.name || "", description: data.description || "",
-                    price: data.price?.toString() || "", mrp: data.mrp?.toString() || "",
-                    category: data.category || "", isCustomizable: Boolean(data.isCustomizable),
-                    tags: data.tags?.join(", ") || "", stock: data.stock?.toString() ?? "0",
+                    name: data.name || "",
+                    description: data.description || "",
+                    price: data.price?.toString() || "",
+                    mrp: data.mrp?.toString() || "",
+                    category: data.category || "",
+                    isCustomizable: Boolean(data.isCustomizable),
+                    tags: data.tags?.join(", ") || "",
+                    stock: data.stock?.toString() ?? "0",
+                    // ✅ DEAL
+                    isDeal: data.isDeal || false,
+                    dealEndsAt: data.dealEndsAt ? data.dealEndsAt.slice(0, 16) : "",
                 });
                 setCurrentImages(data.images || []);
                 if (data.sizes?.length > 0) setSelectedSizes(data.sizes);
@@ -72,28 +84,33 @@ const AdminEditProduct = () => {
                 }
             } catch {
                 setError("Failed to load product");
-            } finally { setLoading(false); }
+            } finally {
+                setLoading(false);
+            }
         };
         fetchProduct();
     }, [id]);
 
+    // ================= HANDLE INPUT =================
     const handleChange = (e) => {
         const { name, value, type, checked } = e.target;
         setForm(prev => ({ ...prev, [name]: type === "checkbox" ? checked : value }));
         setError("");
     };
 
+    // ================= SIZES =================
     const toggleSize = (size) => {
         setSelectedSizes(prev => prev.includes(size) ? prev.filter(s => s !== size) : [...prev, size]);
     };
 
+    // ================= HIGHLIGHTS =================
     const updateHighlight = (idx, field, value) => {
         setHighlights(prev => prev.map((h, i) => i === idx ? { ...h, [field]: value } : h));
     };
-
     const addHighlight = () => setHighlights(prev => [...prev, { key: "", value: "" }]);
     const removeHighlight = (idx) => setHighlights(prev => prev.filter((_, i) => i !== idx));
 
+    // ================= IMAGE =================
     const handleImageChange = (e) => {
         const files = Array.from(e.target.files);
         if (!files.length) return;
@@ -115,6 +132,7 @@ const AdminEditProduct = () => {
         ? Math.round(((Number(form.mrp) - Number(form.price)) / Number(form.mrp)) * 100)
         : null;
 
+    // ================= SUBMIT =================
     const submitHandler = async (e) => {
         e.preventDefault();
         if (!form.name.trim()) return setError("Product name is required");
@@ -124,7 +142,8 @@ const AdminEditProduct = () => {
         if (form.stock === "" || Number(form.stock) < 0) return setError("Enter a valid stock quantity (0 or more)");
 
         try {
-            setSaving(true); setError("");
+            setSaving(true);
+            setError("");
             const formData = new FormData();
             formData.append("name", form.name.trim());
             formData.append("description", form.description.trim());
@@ -135,6 +154,13 @@ const AdminEditProduct = () => {
             formData.append("isCustomizable", form.isCustomizable ? "true" : "false");
             formData.append("stock", Number(form.stock));
             if (form.tags.trim()) formData.append("tags", form.tags.trim());
+
+            // ✅ DEAL
+            formData.append("isDeal", form.isDeal);
+            if (form.isDeal && form.dealEndsAt) {
+                formData.append("dealEndsAt", form.dealEndsAt);
+            }
+
             images.forEach(img => formData.append("images", img));
             if (selectedSizes.length > 0) formData.append("sizes", JSON.stringify(selectedSizes));
             const validHighlights = highlights.filter(h => h.key && h.value);
@@ -143,12 +169,15 @@ const AdminEditProduct = () => {
                 validHighlights.forEach(h => { obj[h.key] = h.value; });
                 formData.append("highlights", JSON.stringify(obj));
             }
+
             await api.put(`/products/${id}`, formData, { headers: { "Content-Type": "multipart/form-data" } });
             showToast("success", "Product updated successfully!");
             setTimeout(() => navigate("/admin/products"), 1400);
         } catch (err) {
             setError(err.response?.data?.message || "Failed to update product");
-        } finally { setSaving(false); }
+        } finally {
+            setSaving(false);
+        }
     };
 
     if (loading) return (
@@ -306,6 +335,33 @@ const AdminEditProduct = () => {
                                     style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 13, color: "#2563eb", fontWeight: 600, background: "none", border: "none", cursor: "pointer", padding: "4px 0", fontFamily: "inherit" }}>
                                     <FiPlus size={13} /> Add highlight
                                 </button>
+                            </div>
+                        </InputField>
+
+                        {/* ✅ DEAL SECTION */}
+                        <InputField label="Deal" hint="(optional)">
+                            <div style={{ padding: "14px 16px", background: "#fffbeb", borderRadius: 10, border: "1px solid #fde68a", display: "flex", flexDirection: "column", gap: 12 }}>
+                                <label style={{ display: "flex", alignItems: "center", gap: 10, cursor: "pointer" }}>
+                                    <button type="button"
+                                        onClick={() => setForm(prev => ({ ...prev, isDeal: !prev.isDeal, dealEndsAt: !prev.isDeal ? prev.dealEndsAt : "" }))}
+                                        style={{ position: "relative", width: 44, height: 24, borderRadius: 12, border: "none", background: form.isDeal ? "#f59e0b" : "#e2e8f0", cursor: "pointer", transition: "background 0.2s", flexShrink: 0 }}>
+                                        <div style={{ position: "absolute", top: 2, width: 20, height: 20, background: "#fff", borderRadius: "50%", boxShadow: "0 1px 4px rgba(0,0,0,0.2)", transition: "left 0.2s", left: form.isDeal ? 22 : 2 }} />
+                                    </button>
+                                    <span style={{ fontSize: 14, fontWeight: 600, color: "#92400e" }}>🔥 Mark as Deal</span>
+                                </label>
+                                {form.isDeal && (
+                                    <div>
+                                        <p style={{ fontSize: 12, color: "#92400e", marginBottom: 6, fontWeight: 500 }}>Deal ends at</p>
+                                        <input
+                                            type="datetime-local"
+                                            value={form.dealEndsAt}
+                                            onChange={(e) => setForm(prev => ({ ...prev, dealEndsAt: e.target.value }))}
+                                            style={{ ...inputStyle, borderColor: "#fde68a" }}
+                                            onFocus={e => e.target.style.borderColor = "#f59e0b"}
+                                            onBlur={e => e.target.style.borderColor = "#fde68a"}
+                                        />
+                                    </div>
+                                )}
                             </div>
                         </InputField>
 

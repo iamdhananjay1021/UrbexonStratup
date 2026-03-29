@@ -1,3 +1,14 @@
+/**
+ * Product.js
+ * ─────────────────────────────────────────────────────────
+ * ✅ All indexes added for fast queries
+ * ✅ isDeal + dealEndsAt compound index
+ * ✅ inStock index
+ * ✅ price index for sort
+ * ✅ rating index for sort
+ * ─────────────────────────────────────────────────────────
+ */
+
 import mongoose from "mongoose";
 import slugify from "slugify";
 
@@ -33,15 +44,12 @@ const productSchema = new mongoose.Schema(
         category: {
             type: String,
             required: true,
-            index: true,
         },
         images: {
-            type: [
-                {
-                    url: { type: String, required: true },
-                    public_id: { type: String, required: true },
-                },
-            ],
+            type: [{
+                url: { type: String, required: true },
+                public_id: { type: String, required: true },
+            }],
             validate: (v) => v.length > 0,
         },
         tags: { type: [String], default: [] },
@@ -53,6 +61,12 @@ const productSchema = new mongoose.Schema(
         stock: { type: Number, default: 0, min: 0 },
         inStock: { type: Boolean, default: true },
 
+        /* ── Deals ── */
+        isDeal: { type: Boolean, default: false },
+        dealEndsAt: { type: Date },
+        dealTag: { type: String },
+
+        /* ── Shipping ── */
         weight: {
             type: Number,
             default: 500,
@@ -72,42 +86,44 @@ const productSchema = new mongoose.Schema(
     }
 );
 
-/* ─────────────────────────────────────────────
-   AUTO SLUG — max 8 words, single DB query
-   Uses _id as suffix to guarantee uniqueness
-   without looping — much faster on create
-───────────────────────────────────────────── */
+/* ══════════════════════════════════════════════════════
+   INDEXES
+   — text search on name, description, tags
+   — compound: category + inStock + createdAt (main listing query)
+   — compound: isDeal + dealEndsAt (deals page query)
+   — sort indexes: price, rating
+══════════════════════════════════════════════════════ */
+productSchema.index({ name: "text", description: "text", tags: "text" });
+productSchema.index({ category: 1, inStock: 1, createdAt: -1 }); // category listing
+productSchema.index({ inStock: 1, createdAt: -1 });               // all products listing
+productSchema.index({ isDeal: 1, dealEndsAt: 1, inStock: 1 });   // deals query
+productSchema.index({ price: 1 });                                // price sort
+productSchema.index({ rating: -1 });                              // rating sort
+productSchema.index({ createdAt: -1 });                           // newest sort
+
+/* ══════════════════════════════════════════════════════
+   AUTO SLUG
+   Uses _id suffix for instant uniqueness — no DB loop
+══════════════════════════════════════════════════════ */
 productSchema.pre("save", function () {
     if (!this.isModified("name") && this.slug) return;
 
-    // Max 8 words for SEO friendly URL
     const base = slugify(this.name, { lower: true, strict: true })
         .split("-").slice(0, 8).join("-");
 
-    // ✅ Use _id as guaranteed unique suffix — no DB loop needed
-    // Result: "ram-mandir-ayodhya-model" or "ram-mandir-ayodhya-model-abc123"
     if (!this.slug || this.isModified("name")) {
-        // Try base first; if conflict Mongoose unique index will catch it
-        // For new docs, append short _id to guarantee uniqueness instantly
         this.slug = this.isNew
             ? `${base}-${this._id.toString().slice(-5)}`
             : base;
     }
 });
 
-/* ─────────────────────────────────────────────
-   INDEXES
-───────────────────────────────────────────── */
-productSchema.index({ name: "text", description: "text", tags: "text" });
-productSchema.index({ category: 1, inStock: 1, createdAt: -1 });
-
-/* ─────────────────────────────────────────────
+/* ══════════════════════════════════════════════════════
    VIRTUAL — discount percent
-───────────────────────────────────────────── */
+══════════════════════════════════════════════════════ */
 productSchema.virtual("discountPercent").get(function () {
-    if (this.mrp && this.mrp > this.price) {
+    if (this.mrp && this.mrp > this.price)
         return Math.round(((this.mrp - this.price) / this.mrp) * 100);
-    }
     return null;
 });
 
