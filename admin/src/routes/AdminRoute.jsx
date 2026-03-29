@@ -5,32 +5,18 @@ const AdminRoute = () => {
     const { admin, loading } = useAdminAuth();
     const location = useLocation();
 
-    /* ⏳ Wait until auth check finishes */
     if (loading) {
         return (
-            <div className="min-h-screen flex items-center justify-center">
-                <div className="animate-spin h-10 w-10 border-4 border-slate-300 border-t-slate-900 rounded-full"></div>
+            <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                <div style={{ width: 40, height: 40, border: "3px solid #dbeafe", borderTopColor: "#2563eb", borderRadius: "50%", animation: "spin 0.8s linear infinite" }} />
+                <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
             </div>
         );
     }
 
-    /* 🔐 Not logged in → redirect to admin login */
-    if (!admin) {
-        return (
-            <Navigate
-                to="/admin/login"
-                replace
-                state={{ from: location }}
-            />
-        );
-    }
+    if (!admin) return <Navigate to="/admin/login" replace state={{ from: location }} />;
+    if (!["admin", "owner"].includes(admin.role)) return <Navigate to="/admin/login" replace />;
 
-    /* 🛑 Role protection (extra safety) */
-    if (!["admin", "owner"].includes(admin.role)) {
-        return <Navigate to="/admin/login" replace />;
-    }
-
-    /* ✅ Access granted */
     return <Outlet />;
 };
 

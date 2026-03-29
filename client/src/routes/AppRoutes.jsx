@@ -1,16 +1,14 @@
 import { lazy, Suspense, useEffect } from "react";
-import { Routes, Route, Navigate, useLocation } from "react-router-dom";
+import { Routes, Route, useLocation } from "react-router-dom";
 import ProtectedRoute from "../components/ProtectedRoute";
 import PageTransition from "../components/PageTransition";
-
-// ✅ Layout
 import MainLayout from "../layouts/MainLayout";
 
-// Eagerly loaded
-import Home from "../pages/Home";
+// ── Eagerly loaded (critical path)
 import Login from "../pages/Login";
+import Home from "../pages/Home";   // ✅ actual filename: Home.jsx
 
-// Lazy loaded
+// ── Lazy loaded
 const Register = lazy(() => import("../pages/Register"));
 const Cart = lazy(() => import("../pages/Cart"));
 const Checkout = lazy(() => import("../components/checkout/Checkout"));
@@ -26,113 +24,74 @@ const PrivacyPolicy = lazy(() => import("../pages/PrivacyPolicy"));
 const TermsConditions = lazy(() => import("../pages/TermsConditions"));
 const RefundPolicy = lazy(() => import("../pages/RefundPolicy"));
 const ContactUs = lazy(() => import("../pages/Contactus"));
-// const NotFound = lazy(() => import("../pages/NotFound")); // ✅ Add this page
+const CategoryPage = lazy(() => import("../pages/Categorypage"));  // ✅ actual filename: Categorypage.jsx
+const DealsPage = lazy(() => import("../pages/Dealspage"));     // ✅ actual filename: Dealspage.jsx
+const NotFound = lazy(() => import("../pages/Notfound"));      // ✅ actual filename: Notfound.jsx
 
-// 🔄 Loader
+/* ── Page loader ── */
 const PageLoader = () => (
-    <div className="min-h-screen flex items-center justify-center bg-stone-50">
-        <div className="w-10 h-10 border-4 border-amber-400 border-t-transparent rounded-full animate-spin" />
+    <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", background: "#f7f4ee" }}>
+        <div style={{ width: 40, height: 40, border: "3px solid #e8e4d9", borderTop: "3px solid #c9a84c", borderRadius: "50%", animation: "spin 0.8s linear infinite" }} />
+        <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
     </div>
 );
 
-// 🔝 Scroll Fix
+/* ── Scroll to top on route change ── */
 const ScrollToTop = () => {
     const { pathname } = useLocation();
-    useEffect(() => {
-        window.scrollTo(0, 0);
-    }, [pathname]);
+    useEffect(() => { window.scrollTo(0, 0); }, [pathname]);
     return null;
 };
 
+/* ════════════════════════════════════════
+   APP ROUTES
+════════════════════════════════════════ */
 const AppRoutes = () => {
     return (
         <>
             <ScrollToTop />
-
             <Suspense fallback={<PageLoader />}>
-
                 <Routes>
 
-                    {/* ============================= */}
-                    {/* ❌ NO NAVBAR / FOOTER ROUTES */}
-                    {/* ============================= */}
-
+                    {/* ── No navbar/footer routes ── */}
                     <Route path="/login" element={<Login />} />
                     <Route path="/register" element={<Register />} />
                     <Route path="/forgot-password" element={<ForgotPassword />} />
                     <Route path="/reset-password/:token" element={<ResetPassword />} />
+                    <Route path="/order-success/:id" element={<OrderSuccess />} />
 
-                    {/* ✅ Checkout (Protected + Clean UI) */}
+                    {/* ── Checkout: protected, no layout ── */}
                     <Route element={<ProtectedRoute />}>
                         <Route path="/checkout" element={<Checkout />} />
                     </Route>
 
-                    {/* ✅ Order Success (no distractions) */}
-                    <Route path="/order-success/:id" element={<OrderSuccess />} />
-
-
-                    {/* ============================= */}
-                    {/* ✅ WITH NAVBAR + FOOTER */}
-                    {/* ============================= */}
-
+                    {/* ── Main layout (navbar + footer) ── */}
                     <Route element={<MainLayout />}>
 
-                        {/* Wrap only main pages in transition */}
-                        <Route
-                            path="/"
-                            element={
-                                <PageTransition>
-                                    <Home />
-                                </PageTransition>
-                            }
-                        />
+                        <Route path="/" element={
+                            <PageTransition><Home /></PageTransition>
+                        } />
 
-                        <Route
-                            path="/products/:id"
-                            element={
-                                <PageTransition>
-                                    <ProductDetails />
-                                </PageTransition>
-                            }
-                        />
+                        <Route path="/category/:slug" element={
+                            <PageTransition><CategoryPage /></PageTransition>
+                        } />
 
-                        <Route
-                            path="/privacy-policy"
-                            element={
-                                <PageTransition>
-                                    <PrivacyPolicy />
-                                </PageTransition>
-                            }
-                        />
+                        <Route path="/deals" element={
+                            <PageTransition><DealsPage /></PageTransition>
+                        } />
 
-                        <Route
-                            path="/terms-conditions"
-                            element={
-                                <PageTransition>
-                                    <TermsConditions />
-                                </PageTransition>
-                            }
-                        />
+                        <Route path="/products/:id" element={
+                            <PageTransition><ProductDetails /></PageTransition>
+                        } />
 
-                        <Route
-                            path="/refund-policy"
-                            element={
-                                <PageTransition>
-                                    <RefundPolicy />
-                                </PageTransition>
-                            }
-                        />
+                        {/* Static pages */}
+                        <Route path="/privacy-policy" element={<PageTransition><PrivacyPolicy /></PageTransition>} />
+                        <Route path="/terms-conditions" element={<PageTransition><TermsConditions /></PageTransition>} />
+                        <Route path="/refund-policy" element={<PageTransition><RefundPolicy /></PageTransition>} />
+                        <Route path="/contact" element={<PageTransition><ContactUs /></PageTransition>} />
+                        <Route path="/verify-invoice" element={<PageTransition><VerifyInvoice /></PageTransition>} />
 
-                        <Route
-                            path="/contact"
-                            element={
-                                <PageTransition>
-                                    <ContactUs />
-                                </PageTransition>
-                            }
-                        />
-
-                        {/* 🔒 Protected inside layout */}
+                        {/* Protected routes inside layout */}
                         <Route element={<ProtectedRoute />}>
                             <Route path="/cart" element={<Cart />} />
                             <Route path="/orders" element={<MyOrders />} />
@@ -142,13 +101,10 @@ const AppRoutes = () => {
 
                     </Route>
 
-                    {/* ============================= */}
-                    {/* ❌ 404 PAGE */}
-                    {/* ============================= */}
-                    {/* <Route path="*" element={<NotFound />} /> */}
+                    {/* 404 */}
+                    <Route path="*" element={<NotFound />} />
 
                 </Routes>
-
             </Suspense>
         </>
     );

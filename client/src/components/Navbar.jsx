@@ -8,7 +8,6 @@ import {
 import { useSelector } from "react-redux";
 import { useAuth } from "../contexts/AuthContext";
 
-/* ── Logo ── */
 const LogoMark = memo(() => (
     <svg width="38" height="38" viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg">
         <path d="M18 2 L32 10 L32 26 L18 34 L4 26 L4 10 Z" fill="#1a1740" />
@@ -61,29 +60,27 @@ const Navbar = () => {
 
     const handleCategoryClick = useCallback((cat) => {
         setMobileOpen(false);
-        navigate(cat === "deals" ? "/?deals=true" : `/?category=${cat}`);
+        if (cat === "deals") navigate("/deals");
+        else navigate(`/category/${cat}`);
     }, [navigate]);
 
     const isCatActive = useCallback((cat) => {
-        const p = new URLSearchParams(location.search);
-        return cat === "deals" ? p.get("deals") === "true" : p.get("category") === cat;
-    }, [location.search]);
+        if (cat === "deals") return location.pathname === "/deals";
+        return location.pathname === `/category/${cat}`;
+    }, [location.pathname]);
 
-    /* ── Scroll hide/show ── */
     useEffect(() => {
         const fn = () => {
             const y = window.scrollY;
             setScrolled(y > 8);
-            if (!mobileOpen && !searchOverlay) {
+            if (!mobileOpen && !searchOverlay)
                 setNavHidden(y > lastScrollY.current && y > 80);
-            }
             lastScrollY.current = y;
         };
         window.addEventListener("scroll", fn, { passive: true });
         return () => window.removeEventListener("scroll", fn);
     }, [mobileOpen, searchOverlay]);
 
-    /* ── Close user menu on outside click ── */
     useEffect(() => {
         const fn = e => {
             if (userMenuRef.current && !userMenuRef.current.contains(e.target))
@@ -93,19 +90,13 @@ const Navbar = () => {
         return () => document.removeEventListener("mousedown", fn);
     }, []);
 
-    /* ── NO body.style manipulation — removed completely ── */
-
-    /* ── Search overlay focus ── */
     useEffect(() => {
         if (searchOverlay) {
             const t = setTimeout(() => searchInputRef.current?.focus(), 150);
             return () => clearTimeout(t);
-        } else {
-            setSearchVal("");
-        }
+        } else setSearchVal("");
     }, [searchOverlay]);
 
-    /* ── Escape key ── */
     useEffect(() => {
         const fn = e => {
             if (e.key === "Escape") { setSearchOverlay(false); setMobileOpen(false); }
@@ -114,7 +105,6 @@ const Navbar = () => {
         return () => document.removeEventListener("keydown", fn);
     }, []);
 
-    /* ── Close on route change ── */
     useEffect(() => {
         setMobileOpen(false);
         setSearchOverlay(false);
@@ -131,7 +121,7 @@ const Navbar = () => {
 
     const handleSearch = useCallback(q => {
         setMobileOpen(false); setSearchOverlay(false);
-        navigate(`/?search=${encodeURIComponent(q)}`);
+        navigate(`/?search=${encodeURIComponent(q.trim())}`);
     }, [navigate]);
 
     const onOverlaySubmit = useCallback(e => {
@@ -154,11 +144,13 @@ const Navbar = () => {
     const toggleMenu = useCallback(() => setUserMenuOpen(p => !p), []);
     const goCart = useCallback(() => go("/cart"), [go]);
 
+    const MOBILE_H = 64;
+    const DESKTOP_H = 112;
+
     return (
         <>
             <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@600;700&family=DM+Sans:wght@400;500;600&display=swap');
-
         :root {
           --g1:#c9a84c; --g2:#e8d49a;
           --dk:#0f0d2a; --dk2:#150f38;
@@ -170,312 +162,131 @@ const Navbar = () => {
           --sidebar-text:#3d3527;
           --sidebar-muted:#8a7f6e;
         }
+        .nx   { font-family:'DM Sans',sans-serif; }
+        .nxlg { font-family:'Cormorant Garamond',serif; }
 
-        .nx  { font-family:'DM Sans',sans-serif; }
-        .nxlg{ font-family:'Cormorant Garamond',serif; }
-
-        /* ── Keyframes ── */
-        @keyframes nxfd   { from{opacity:0}                                         to{opacity:1} }
-        @keyframes nxsl   { from{opacity:0;transform:translateX(100%)}              to{opacity:1;transform:translateX(0)} }
-        @keyframes nxsi   { from{opacity:0;transform:translateY(-10px)}             to{opacity:1;transform:translateY(0)} }
-        @keyframes nxdr   { from{opacity:0;transform:translateY(-8px) scale(.97)}   to{opacity:1;transform:none} }
-        @keyframes nxpop  { 0%{transform:scale(.95);opacity:0} 60%{transform:scale(1.02)} 100%{transform:scale(1);opacity:1} }
-
+        @keyframes nxfd  { from{opacity:0}                                        to{opacity:1} }
+        @keyframes nxsl  { from{opacity:0;transform:translateX(100%)}             to{opacity:1;transform:translateX(0)} }
+        @keyframes nxsi  { from{opacity:0;transform:translateY(-10px)}            to{opacity:1;transform:translateY(0)} }
+        @keyframes nxdr  { from{opacity:0;transform:translateY(-8px) scale(.97)}  to{opacity:1;transform:none} }
+        @keyframes nxpop { 0%{transform:scale(.95);opacity:0} 60%{transform:scale(1.02)} 100%{transform:scale(1);opacity:1} }
         .nxfd  { animation:nxfd  .2s  ease forwards; }
         .nxsl  { animation:nxsl  .3s  cubic-bezier(.32,.72,0,1) forwards; }
         .nxsi  { animation:nxsi  .22s cubic-bezier(.22,1,.36,1) forwards; }
         .nxdr  { animation:nxdr  .22s cubic-bezier(.22,1,.36,1) forwards; transform-origin:top center; }
         .nxpop { animation:nxpop .25s cubic-bezier(.22,1,.36,1) forwards; }
-
         .ci { transition:all .2s ease; }
 
-        /* ══════════════════════════════
-           MOBILE NAV
-        ══════════════════════════════ */
-        .mnav {
-          background:var(--dk);
-          border-bottom:1px solid rgba(201,168,76,.18);
-          transition:transform .3s cubic-bezier(.4,0,.2,1), background .3s, box-shadow .3s;
-          will-change:transform;
-        }
-        .mnav.msc {
-          background:rgba(15,13,42,.97);
-          backdrop-filter:blur(20px);
-          -webkit-backdrop-filter:blur(20px);
-          box-shadow:0 4px 30px rgba(0,0,0,.4);
-        }
-
-        /* Mobile icon buttons */
-        .mact {
-          display:flex; align-items:center; justify-content:center;
-          width:40px; height:40px; border-radius:10px;
-          color:rgba(255,255,255,.65); border:none; background:none; cursor:pointer;
-          transition:all .18s;
-        }
-        .mact:hover  { background:rgba(255,255,255,.09); color:#fff; }
+        /* ── MOBILE NAV ── */
+        .mnav { background:var(--dk); border-bottom:1px solid rgba(201,168,76,.18); transition:transform .3s cubic-bezier(.4,0,.2,1),background .3s,box-shadow .3s; will-change:transform; }
+        .mnav.msc { background:rgba(15,13,42,.97); backdrop-filter:blur(20px); -webkit-backdrop-filter:blur(20px); box-shadow:0 4px 30px rgba(0,0,0,.4); }
+        .mact { display:flex;align-items:center;justify-content:center;width:40px;height:40px;border-radius:10px;color:rgba(255,255,255,.65);border:none;background:none;cursor:pointer;transition:all .18s; }
+        .mact:hover { background:rgba(255,255,255,.09); color:#fff; }
         .mcart:hover .ci { color:var(--g1)!important; transform:rotate(-8deg) scale(1.12); }
+        .nhb span { display:block;height:2px;border-radius:2px;background:currentColor;transition:all .28s ease; }
+        .nbadge { position:absolute;top:-5px;right:-5px;background:linear-gradient(135deg,var(--g1),var(--g2));font-size:8px;min-width:16px;height:16px;padding:0 3px;border-radius:99px;display:flex;align-items:center;justify-content:center;font-weight:900; }
+        .nbadgem { color:var(--dk);border:2px solid var(--dk); }
+        .nbadged { color:var(--dk);border:2px solid var(--wh); }
+        .nhot { font-size:7.5px;font-weight:800;letter-spacing:.1em;padding:2px 5px;border-radius:4px;background:var(--g1);color:var(--dk); }
 
-        /* Hamburger */
-        .nhb span {
-          display:block; height:2px; border-radius:2px;
-          background:currentColor; transition:all .28s ease;
-        }
-
-        /* Badge */
-        .nbadge {
-          position:absolute; top:-5px; right:-5px;
-          background:linear-gradient(135deg,var(--g1),var(--g2));
-          font-size:8px; min-width:16px; height:16px; padding:0 3px;
-          border-radius:99px; display:flex; align-items:center; justify-content:center;
-          font-weight:900;
-        }
-        .nbadgem { color:var(--dk); border:2px solid var(--dk); }
-        .nbadged { color:var(--dk); border:2px solid var(--wh); }
-        .nhot    { font-size:7.5px; font-weight:800; letter-spacing:.1em; padding:2px 5px; border-radius:4px; background:var(--g1); color:var(--dk); }
-
-        /* ══════════════════════════════
-           MOBILE DRAWER — CREAM SIDEBAR
-        ══════════════════════════════ */
-        .drw {
-          background:var(--sidebar-bg);
-          border-left:1px solid var(--sidebar-border);
-          display:flex; flex-direction:column;
-        }
-
-        /* Drawer header */
-        .drw-header {
-          display:flex; align-items:center; justify-content:space-between;
-          padding:14px 16px 12px;
-          border-bottom:1px solid var(--sidebar-border);
-          position:sticky; top:0;
-          background:var(--sidebar-bg);
-          z-index:2;
-          flex-shrink:0;
-        }
-
-        /* Drawer close btn */
-        .drw-cls {
-          width:30px; height:30px; border-radius:8px;
-          background:var(--cream2); border:none;
-          display:flex; align-items:center; justify-content:center;
-          cursor:pointer; color:var(--sidebar-muted);
-          transition:all .15s;
-        }
+        /* ── DRAWER ── */
+        .drw { background:var(--sidebar-bg);border-left:1px solid var(--sidebar-border);display:flex;flex-direction:column; }
+        .drw-header { display:flex;align-items:center;justify-content:space-between;padding:14px 16px 12px;border-bottom:1px solid var(--sidebar-border);position:sticky;top:0;background:var(--sidebar-bg);z-index:2;flex-shrink:0; }
+        .drw-cls { width:30px;height:30px;border-radius:8px;background:var(--cream2);border:none;display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--sidebar-muted);transition:all .15s; }
         .drw-cls:hover { background:var(--cream3); color:var(--sidebar-text); }
-
-        /* Drawer scroll body */
-        .drw-body {
-          flex:1; overflow-y:auto; overflow-x:hidden;
-          padding:8px 10px 24px;
-          /* Custom scrollbar */
-          scrollbar-width:thin;
-          scrollbar-color:var(--cream3) transparent;
-        }
+        .drw-body { flex:1;overflow-y:auto;overflow-x:hidden;padding:8px 10px 24px;scrollbar-width:thin;scrollbar-color:var(--cream3) transparent; }
         .drw-body::-webkit-scrollbar { width:4px; }
-        .drw-body::-webkit-scrollbar-thumb { background:var(--cream3); border-radius:4px; }
-
-        /* Drawer footer — always visible at bottom */
-        .drw-footer {
-          flex-shrink:0;
-          padding:12px 14px 20px;
-          border-top:1px solid var(--sidebar-border);
-          background:var(--sidebar-bg);
-        }
-
-        /* Section label */
-        .drw-label {
-          font-size:9.5px; font-weight:700; text-transform:uppercase;
-          letter-spacing:.14em; color:var(--sidebar-muted);
-          padding:10px 6px 4px; margin:0;
-        }
-
-        /* Drawer item */
-        .di {
-          display:flex; align-items:center; gap:11px; width:100%;
-          padding:9px 10px; border-radius:10px;
-          font-size:13.5px; font-weight:500; color:var(--sidebar-text);
-          background:none; border:none; cursor:pointer;
-          transition:background .15s, color .15s; text-align:left;
-          text-decoration:none; font-family:'DM Sans',sans-serif;
-        }
+        .drw-body::-webkit-scrollbar-thumb { background:var(--cream3);border-radius:4px; }
+        .drw-footer { flex-shrink:0;padding:12px 14px 20px;border-top:1px solid var(--sidebar-border);background:var(--sidebar-bg); }
+        .drw-label { font-size:9.5px;font-weight:700;text-transform:uppercase;letter-spacing:.14em;color:var(--sidebar-muted);padding:10px 6px 4px;margin:0; }
+        .di { display:flex;align-items:center;gap:11px;width:100%;padding:9px 10px;border-radius:10px;font-size:13.5px;font-weight:500;color:var(--sidebar-text);background:none;border:none;cursor:pointer;transition:background .15s,color .15s;text-align:left;text-decoration:none;font-family:'DM Sans',sans-serif; }
         .di:hover { background:var(--cream2); color:var(--navy); }
         .di:hover .dic { background:var(--cream3); color:var(--g1); }
-        .di.di-active { background:rgba(201,168,76,.12); color:var(--navy); font-weight:600; }
+        .di.di-active { background:rgba(201,168,76,.12);color:var(--navy);font-weight:600; }
         .di.di-active .dic { background:rgba(201,168,76,.2); color:var(--g1); }
-
-        /* Drawer icon bubble */
-        .dic {
-          width:32px; height:32px; border-radius:10px; flex-shrink:0;
-          background:var(--cream2); color:var(--sidebar-muted);
-          display:flex; align-items:center; justify-content:center;
-          transition:all .15s;
-        }
-
-        /* Logout special */
-        .di-out { color:#c0392b !important; }
-        .di-out:hover { background:#fff0ee !important; color:#c0392b !important; }
-        .di-out:hover .dic { background:#ffe4e1 !important; color:#c0392b !important; }
+        .dic { width:32px;height:32px;border-radius:10px;flex-shrink:0;background:var(--cream2);color:var(--sidebar-muted);display:flex;align-items:center;justify-content:center;transition:all .15s; }
+        .di-out { color:#c0392b!important; }
+        .di-out:hover { background:#fff0ee!important; color:#c0392b!important; }
+        .di-out:hover .dic { background:#ffe4e1!important; color:#c0392b!important; }
         .di-out .dic { background:#fdecea; color:#e57373; }
-
-        /* ── Mobile search pill ── */
-        .mpill {
-          display:inline-flex; align-items:center; gap:5px;
-          padding:5px 12px; border-radius:99px; font-size:12px; font-weight:500;
-          background:rgba(255,255,255,.07); color:rgba(255,255,255,.75);
-          border:1px solid rgba(201,168,76,.25); cursor:pointer;
-          transition:all .18s; white-space:nowrap; font-family:'DM Sans',sans-serif;
-        }
+        .mpill { display:inline-flex;align-items:center;gap:5px;padding:5px 12px;border-radius:99px;font-size:12px;font-weight:500;background:rgba(255,255,255,.07);color:rgba(255,255,255,.75);border:1px solid rgba(201,168,76,.25);cursor:pointer;transition:all .18s;white-space:nowrap;font-family:'DM Sans',sans-serif; }
         .mpill:hover { background:var(--g1); color:var(--dk); border-color:transparent; }
 
-        /* ══════════════════════════════
-           DESKTOP NAV
-        ══════════════════════════════ */
-        .dnav {
-          background:#fff;
-          border-bottom:1px solid var(--cream2);
-          transition:transform .3s cubic-bezier(.4,0,.2,1), box-shadow .3s;
-        }
-        .dnav.dsc {
-          background:rgba(255,255,255,.97);
-          backdrop-filter:blur(16px);
-          -webkit-backdrop-filter:blur(16px);
-          box-shadow:0 2px 20px rgba(0,0,0,.08);
-        }
+        /* ── DESKTOP NAV ── */
+        .dnav { background:#fff;border-bottom:1px solid var(--cream2);transition:transform .3s cubic-bezier(.4,0,.2,1),box-shadow .3s; }
+        .dnav.dsc { background:rgba(255,255,255,.97);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);box-shadow:0 2px 20px rgba(0,0,0,.08); }
 
-        /* Desktop search bar */
-        .dsrch-wrap {
-          display:flex; align-items:center;
-          background:#f7f5f0; border:1.5px solid #e8e3da;
-          border-radius:10px; height:46px;
-          padding:0 6px 0 14px;
-          transition:border-color .2s, background .2s, box-shadow .2s;
-          flex:1; max-width:580px;
-        }
-        .dsrch-wrap.focused {
-          border-color:var(--g1);
-          background:#fffdf7;
-          box-shadow:0 0 0 3px rgba(201,168,76,.12);
-        }
-        .dsrch-inp {
-          background:transparent; border:none; outline:none;
-          font-size:14px; font-weight:400; color:var(--navy);
-          width:100%; font-family:'DM Sans',sans-serif;
-        }
+        /* Search bar */
+        .dsrch-wrap { display:flex;align-items:center;background:#f7f5f0;border:1.5px solid #e8e3da;border-radius:10px;height:44px;padding:0 5px 0 14px;transition:border-color .2s,background .2s,box-shadow .2s;flex:1;max-width:560px; }
+        .dsrch-wrap.focused { border-color:var(--g1);background:#fffdf7;box-shadow:0 0 0 3px rgba(201,168,76,.12); }
+        .dsrch-inp { background:transparent;border:none;outline:none;font-size:13.5px;font-weight:400;color:var(--navy);width:100%;font-family:'DM Sans',sans-serif; }
         .dsrch-inp::placeholder { color:#b0a898; }
-        .dsrch-btn {
-          height:34px; padding:0 16px; border-radius:7px; flex-shrink:0;
-          background:var(--navy); border:none; cursor:pointer;
-          display:flex; align-items:center; justify-content:center; gap:6px;
-          transition:all .18s; color:#fff; font-size:13px; font-weight:600;
-          font-family:'DM Sans',sans-serif;
-        }
+        .dsrch-btn { height:34px;padding:0 16px;border-radius:7px;flex-shrink:0;background:var(--navy);border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;transition:all .18s;color:#fff;font-size:13px;font-weight:600;font-family:'DM Sans',sans-serif; }
         .dsrch-btn:hover { background:var(--g1); color:var(--navy); }
 
-        /* Desktop icon actions */
-        .dact {
-          display:flex; align-items:center; justify-content:center;
-          width:40px; height:40px; border-radius:10px;
-          color:#888; border:none; background:none; cursor:pointer; transition:all .18s;
-        }
+        /* Icon buttons */
+        .dact { display:flex;align-items:center;justify-content:center;width:40px;height:40px;border-radius:10px;color:#888;border:none;background:none;cursor:pointer;transition:all .18s; }
         .dact:hover { background:var(--cream); color:var(--navy); }
         .dcart:hover .ci { color:var(--g1)!important; transform:rotate(-8deg) scale(1.12); }
 
-        /* Desktop auth buttons */
-        .dsin {
-          padding:8px 20px; border-radius:9px; border:1.5px solid var(--cream2);
-          color:var(--navy); font-size:13px; font-weight:600; background:#fff;
-          cursor:pointer; transition:all .18s; font-family:'DM Sans',sans-serif; white-space:nowrap;
-        }
-        .dsin:hover { border-color:var(--g1); color:var(--g1); }
-        .dreg {
-          padding:8px 20px; border-radius:9px; border:none;
-          color:#fff; font-size:13px; font-weight:600; background:var(--navy);
-          cursor:pointer; transition:all .18s; font-family:'DM Sans',sans-serif; white-space:nowrap;
-        }
-        .dreg:hover { background:var(--g1); color:var(--navy); }
+        /* ── USER SECTION — redesigned ── */
+        /* Guest buttons */
+        .dsin { padding:8px 18px;border-radius:9px;border:1.5px solid #ddd9d0;color:var(--navy);font-size:13px;font-weight:600;background:#fff;cursor:pointer;transition:all .18s;font-family:'DM Sans',sans-serif;white-space:nowrap; }
+        .dsin:hover { border-color:var(--g1); color:var(--g1); background:#fffdf7; }
+        .dreg { padding:8px 18px;border-radius:9px;border:none;color:#fff;font-size:13px;font-weight:600;background:var(--navy);cursor:pointer;transition:all .18s;font-family:'DM Sans',sans-serif;white-space:nowrap; }
+        .dreg:hover { background:var(--g1); color:var(--dk); }
 
-        /* User button */
-        .dusr {
-          display:flex; align-items:center; gap:8px;
-          padding:5px 12px 5px 5px; border-radius:12px;
-          border:1.5px solid var(--cream2); background:var(--cream);
-          cursor:pointer; transition:all .18s;
-        }
-        .dusr:hover { border-color:var(--g1); background:#fffdf7; }
+        /* Logged-in user pill */
+        .dusr { display:flex;align-items:center;gap:9px;padding:5px 10px 5px 5px;border-radius:12px;border:1.5px solid var(--cream2);background:var(--cream);cursor:pointer;transition:all .2s;position:relative; }
+        .dusr:hover { border-color:var(--g1); background:#fffdf7; box-shadow:0 2px 12px rgba(201,168,76,.15); }
+        .dusr-avatar { width:32px;height:32px;border-radius:50%;background:linear-gradient(135deg,var(--navy),#2d2570);display:flex;align-items:center;justify-content:center;color:#fff;font-weight:800;font-size:13px;flex-shrink:0;box-shadow:0 2px 8px rgba(26,23,64,.25); }
+        .dusr-name { font-size:13px;font-weight:600;color:var(--navy);max-width:80px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap; }
+        .dusr-chevron { color:#aaa;transition:transform .2s;flex-shrink:0; }
+        .dusr:hover .dusr-chevron { color:var(--g1); }
 
         /* Dropdown */
-        .ddrop {
-          background:#fff; border:1px solid var(--cream2);
-          border-radius:16px; overflow:hidden;
-          box-shadow:0 16px 50px rgba(0,0,0,.12);
-        }
-        .dmi {
-          width:100%; padding:9px 16px;
-          display:flex; align-items:center; gap:11px;
-          font-size:13.5px; color:#555; background:none; border:none;
-          cursor:pointer; transition:all .15s; text-align:left; font-weight:400;
-          font-family:'DM Sans',sans-serif;
-        }
+        .ddrop { background:#fff;border:1px solid var(--cream2);border-radius:16px;overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,.13),0 4px 16px rgba(0,0,0,.06);min-width:240px; }
+        .ddrop-header { padding:16px;background:linear-gradient(135deg,var(--navy) 0%,#2a2170 100%);display:flex;align-items:center;gap:12px; }
+        .ddrop-avatar { width:42px;height:42px;border-radius:50%;background:linear-gradient(135deg,var(--g1),var(--g2));display:flex;align-items:center;justify-content:center;color:var(--dk);font-weight:900;font-size:17px;flex-shrink:0;box-shadow:0 3px 12px rgba(201,168,76,.4); }
+        .ddrop-name { font-weight:700;color:#fff;font-size:14px;line-height:1.3;overflow:hidden;text-overflow:ellipsis;white-space:nowrap; }
+        .ddrop-email { font-size:11px;color:rgba(255,255,255,.5);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin-top:1px; }
+        .dmi { width:100%;padding:10px 14px;display:flex;align-items:center;gap:11px;font-size:13.5px;color:#444;background:none;border:none;cursor:pointer;transition:all .15s;text-align:left;font-weight:400;font-family:'DM Sans',sans-serif; }
         .dmi:hover { background:var(--cream); color:var(--navy); }
         .dmi:hover .dmic { background:var(--cream2); color:var(--g1); }
-        .dmic {
-          width:28px; height:28px; border-radius:8px;
-          background:#f0eee8; color:#999; flex-shrink:0;
-          display:flex; align-items:center; justify-content:center; transition:all .15s;
-        }
-        .avt { background:linear-gradient(135deg,var(--g1),var(--g2)); }
+        .dmic { width:30px;height:30px;border-radius:8px;background:#f0eee8;color:#999;flex-shrink:0;display:flex;align-items:center;justify-content:center;transition:all .15s; }
+        .dmi-logout { color:#dc2626!important; }
+        .dmi-logout:hover { background:#fff1f2!important; }
+        .dmi-logout:hover .dmic { background:#ffe4e1!important;color:#dc2626!important; }
+        .dmi-logout .dmic { background:#fdecea;color:#f87171; }
 
         /* Category bar */
-        .dcbar { background:#fff; border-top:1px solid var(--cream2); }
-        .dcbi  {
-          max-width:80rem; margin:0 auto; padding:0 1.5rem;
-          display:flex; align-items:center; overflow-x:auto; scrollbar-width:none;
-        }
+        .dcbar { background:#fff;border-top:1px solid var(--cream2); }
+        .dcbi { max-width:80rem;margin:0 auto;padding:0 1.5rem;display:flex;align-items:center;overflow-x:auto;scrollbar-width:none; }
         .dcbi::-webkit-scrollbar { display:none; }
-        .dcl {
-          display:inline-flex; align-items:center; gap:5px;
-          padding:0 16px; height:40px;
-          font-family:'DM Sans',sans-serif; font-size:12px; font-weight:600;
-          letter-spacing:.06em; color:#777; background:none; border:none;
-          cursor:pointer; white-space:nowrap; flex-shrink:0;
-          border-bottom:2px solid transparent;
-          transition:color .18s, border-color .18s; text-transform:uppercase;
-        }
+        .dcl { display:inline-flex;align-items:center;gap:5px;padding:0 14px;height:40px;font-family:'DM Sans',sans-serif;font-size:11.5px;font-weight:600;letter-spacing:.06em;color:#777;background:none;border:none;cursor:pointer;white-space:nowrap;flex-shrink:0;border-bottom:2px solid transparent;transition:color .18s,border-color .18s;text-transform:uppercase; }
         .dcl:hover { color:var(--navy); border-bottom-color:var(--navy); }
-        .dcl.dca   { color:var(--g1);   border-bottom-color:var(--g1); }
+        .dcl.dca { color:var(--g1); border-bottom-color:var(--g1); }
 
-        /* Spacer */
-        .nx-spacer-mobile  { display:block; height:64px; }
-        .nx-spacer-desktop { display:none; }
-        @media (min-width:768px) {
-          .nx-spacer-mobile  { display:none; }
-          .nx-spacer-desktop { display:block; height:110px; }
-        }
+        /* Mobile search bar inside overlay */
+        .mob-srch-inp { flex:1;background:rgba(255,255,255,.07);border:1px solid rgba(201,168,76,.2);border-radius:12px;padding:11px 16px;font-size:14px;color:#fff;outline:none;font-family:'DM Sans',sans-serif; }
+        .mob-srch-inp::placeholder { color:rgba(255,255,255,.35); }
       `}</style>
 
-            {/* ══════════════════════════════════════════
-                MOBILE SEARCH OVERLAY
-            ══════════════════════════════════════════ */}
+            {/* Spacers */}
+            <div style={{ height: MOBILE_H, display: "block" }} className="md:hidden" />
+            <div style={{ height: DESKTOP_H, display: "none" }} className="md:block" />
+
+            {/* ── MOBILE SEARCH OVERLAY ── */}
             {searchOverlay && (
                 <div className="nx md:hidden" style={{ position: "fixed", inset: 0, zIndex: 510 }}>
-                    {/* Backdrop */}
                     <div className="nxfd" style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,.72)" }} onClick={closeSearch} />
-                    {/* Panel */}
-                    <div className="nxsi" style={{
-                        position: "absolute", left: 0, right: 0, top: 64,
-                        background: "#150f38",
-                        borderRadius: "0 0 20px 20px",
-                        boxShadow: "0 24px 60px rgba(0,0,0,.5)",
-                        padding: "16px 18px 22px",
-                        zIndex: 10,
-                        borderTop: "1px solid rgba(201,168,76,.15)",
-                    }}>
+                    <div className="nxsi" style={{ position: "absolute", left: 0, right: 0, top: MOBILE_H, background: "#150f38", borderRadius: "0 0 20px 20px", boxShadow: "0 24px 60px rgba(0,0,0,.5)", padding: "16px 18px 22px", zIndex: 10, borderTop: "1px solid rgba(201,168,76,.15)" }}>
                         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>
                             <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                                 <div style={{ width: 28, height: 28, borderRadius: 8, background: "var(--g1)", display: "flex", alignItems: "center", justifyContent: "center" }}>
                                     <FaSearch size={12} color="var(--dk)" />
                                 </div>
-                                <span style={{ fontSize: 13, fontWeight: 600, color: "rgba(255,255,255,.8)" }}>Search</span>
+                                <span style={{ fontSize: 13, fontWeight: 600, color: "rgba(255,255,255,.8)" }}>Search Products</span>
                             </div>
                             <button onClick={closeSearch} style={{ width: 28, height: 28, borderRadius: 8, background: "rgba(255,255,255,.08)", border: "none", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: "rgba(255,255,255,.5)" }}>
                                 <FaTimes size={11} />
@@ -488,9 +299,9 @@ const Navbar = () => {
                                 value={searchVal}
                                 onChange={e => setSearchVal(e.target.value)}
                                 placeholder="Search for products..."
-                                style={{ flex: 1, background: "rgba(255,255,255,.07)", border: "1px solid rgba(201,168,76,.2)", borderRadius: 12, padding: "11px 16px", fontSize: 14, color: "#fff", outline: "none", fontFamily: "'DM Sans',sans-serif" }}
+                                className="mob-srch-inp"
                             />
-                            <button type="submit" style={{ width: 44, height: 44, borderRadius: 12, background: "var(--g1)", border: "none", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", flexShrink: 0 }}>
+                            <button type="submit" style={{ width: 46, height: 46, borderRadius: 12, background: "var(--g1)", border: "none", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", flexShrink: 0 }}>
                                 <FaSearch size={14} color="var(--dk)" />
                             </button>
                         </form>
@@ -506,23 +317,11 @@ const Navbar = () => {
                 </div>
             )}
 
-            {/* ══════════════════════════════════════════
-                MOBILE DRAWER — CREAM SIDEBAR
-            ══════════════════════════════════════════ */}
+            {/* ── MOBILE DRAWER ── */}
             {mobileOpen && (
                 <div className="md:hidden nx" style={{ position: "fixed", inset: 0, zIndex: 490 }}>
-                    {/* Backdrop */}
                     <div className="nxfd" style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,.45)" }} onClick={() => setMobileOpen(false)} />
-
-                    {/* Drawer panel — flex column so footer stays at bottom */}
-                    <div className="nxsl drw" style={{
-                        position: "absolute", right: 0, top: 64,
-                        height: "calc(100vh - 64px)",
-                        width: "78%", maxWidth: 300,
-                        borderRadius: "0 0 0 20px",
-                        boxShadow: "-8px 0 40px rgba(0,0,0,.18)",
-                    }}>
-                        {/* ── Header ── */}
+                    <div className="nxsl drw" style={{ position: "absolute", right: 0, top: MOBILE_H, height: `calc(100vh - ${MOBILE_H}px)`, width: "78%", maxWidth: 300, borderRadius: "0 0 0 20px", boxShadow: "-8px 0 40px rgba(0,0,0,.18)" }}>
                         <div className="drw-header">
                             <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                                 <LogoMark />
@@ -535,13 +334,10 @@ const Navbar = () => {
                             </button>
                         </div>
 
-                        {/* ── Scrollable body ── */}
                         <div className="drw-body">
-
-                            {/* User card if logged in */}
                             {isAuthenticated && (
-                                <div className="nxpop" style={{ display: "flex", alignItems: "center", gap: 10, padding: 12, borderRadius: 12, marginBottom: 8, background: "linear-gradient(135deg,rgba(201,168,76,.12),rgba(201,168,76,.05))", border: "1px solid rgba(201,168,76,.2)" }}>
-                                    <div className="avt" style={{ width: 38, height: 38, borderRadius: "50%", flexShrink: 0, color: "var(--dk)", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 900, fontSize: 15 }}>
+                                <div className="nxpop" style={{ display: "flex", alignItems: "center", gap: 10, padding: 12, borderRadius: 12, marginBottom: 8, background: "linear-gradient(135deg,rgba(26,23,64,.06),rgba(201,168,76,.08))", border: "1px solid rgba(201,168,76,.2)" }}>
+                                    <div style={{ width: 40, height: 40, borderRadius: "50%", flexShrink: 0, background: "linear-gradient(135deg,var(--navy),#2d2570)", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 900, fontSize: 16, boxShadow: "0 2px 8px rgba(26,23,64,.2)" }}>
                                         {user?.name?.[0]?.toUpperCase()}
                                     </div>
                                     <div style={{ minWidth: 0 }}>
@@ -551,7 +347,6 @@ const Navbar = () => {
                                 </div>
                             )}
 
-                            {/* Home + Cart */}
                             {[
                                 { icon: <FaHome size={13} />, label: "Home", path: "/" },
                                 { icon: <FaShoppingCart size={13} />, label: `Cart${totalItems > 0 ? ` (${totalItems})` : ""}`, path: "/cart" },
@@ -561,21 +356,15 @@ const Navbar = () => {
                                 </button>
                             ))}
 
-                            {/* Categories */}
                             <p className="drw-label">Categories</p>
                             {CATEGORIES.map(({ label, cat, hot }) => (
-                                <button
-                                    key={cat}
-                                    onClick={() => handleCategoryClick(cat)}
-                                    className={`di${isCatActive(cat) ? " di-active" : ""}`}
-                                >
+                                <button key={cat} onClick={() => handleCategoryClick(cat)} className={`di${isCatActive(cat) ? " di-active" : ""}`}>
                                     <span className="dic"><FaChevronRight size={9} /></span>
                                     {label}
                                     {hot && <span className="nhot" style={{ marginLeft: 4 }}>HOT</span>}
                                 </button>
                             ))}
 
-                            {/* Account links if logged in */}
                             {isAuthenticated && (
                                 <>
                                     <p className="drw-label">Account</p>
@@ -588,7 +377,6 @@ const Navbar = () => {
                             )}
                         </div>
 
-                        {/* ── Footer — always visible, never cut ── */}
                         <div className="drw-footer">
                             {isAuthenticated ? (
                                 <button onClick={handleLogout} className="di di-out" style={{ width: "100%", borderRadius: 10, border: "1px solid #fcd5d0" }}>
@@ -597,14 +385,10 @@ const Navbar = () => {
                                 </button>
                             ) : (
                                 <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                                    <button onClick={() => go("/login")} style={{ width: "100%", padding: "11px 0", borderRadius: 10, border: "1.5px solid var(--navy)", color: "var(--navy)", background: "#fff", fontWeight: 700, fontSize: 13.5, cursor: "pointer", fontFamily: "'DM Sans',sans-serif", transition: "all .18s" }}
-                                        onMouseEnter={e => { e.currentTarget.style.background = "var(--navy)"; e.currentTarget.style.color = "#fff"; }}
-                                        onMouseLeave={e => { e.currentTarget.style.background = "#fff"; e.currentTarget.style.color = "var(--navy)"; }}>
+                                    <button onClick={() => go("/login")} style={{ width: "100%", padding: "11px 0", borderRadius: 10, border: "1.5px solid var(--navy)", color: "var(--navy)", background: "#fff", fontWeight: 700, fontSize: 13.5, cursor: "pointer", fontFamily: "'DM Sans',sans-serif", transition: "all .18s" }}>
                                         Sign In
                                     </button>
-                                    <button onClick={() => go("/register")} style={{ width: "100%", padding: "11px 0", borderRadius: 10, border: "none", color: "#fff", background: "var(--navy)", fontWeight: 700, fontSize: 13.5, cursor: "pointer", fontFamily: "'DM Sans',sans-serif", transition: "all .18s" }}
-                                        onMouseEnter={e => { e.currentTarget.style.background = "var(--g1)"; e.currentTarget.style.color = "var(--dk)"; }}
-                                        onMouseLeave={e => { e.currentTarget.style.background = "var(--navy)"; e.currentTarget.style.color = "#fff"; }}>
+                                    <button onClick={() => go("/register")} style={{ width: "100%", padding: "11px 0", borderRadius: 10, border: "none", color: "#fff", background: "var(--navy)", fontWeight: 700, fontSize: 13.5, cursor: "pointer", fontFamily: "'DM Sans',sans-serif", transition: "all .18s" }}>
                                         Register
                                     </button>
                                 </div>
@@ -614,16 +398,10 @@ const Navbar = () => {
                 </div>
             )}
 
-            {/* Spacers */}
-            <div className="nx-spacer-mobile" />
-            <div className="nx-spacer-desktop" />
-
-            {/* ══════════════════════════════════════════
-                MOBILE NAVBAR
-            ══════════════════════════════════════════ */}
+            {/* ── MOBILE NAVBAR ── */}
             <nav className={`nx md:hidden fixed top-0 left-0 right-0 z-[500] mnav ${scrolled ? "msc" : ""}`}
                 style={{ transform: navHidden && !mobileOpen && !searchOverlay ? "translateY(-100%)" : "translateY(0)", transition: "transform .3s cubic-bezier(.4,0,.2,1)" }}>
-                <div className="max-w-7xl mx-auto px-4 h-16 flex items-center">
+                <div className="max-w-7xl mx-auto px-4 flex items-center" style={{ height: MOBILE_H }}>
                     <button onClick={() => go("/")} style={{ background: "none", border: "none", cursor: "pointer", display: "flex", alignItems: "center", gap: 10 }}>
                         <LogoMark />
                         <span className="nxlg" style={{ fontWeight: 700, fontSize: 20, letterSpacing: ".04em", color: "#fff" }}>
@@ -647,12 +425,12 @@ const Navbar = () => {
                 </div>
             </nav>
 
-            {/* ══════════════════════════════════════════
-                DESKTOP NAVBAR
-            ══════════════════════════════════════════ */}
+            {/* ── DESKTOP NAVBAR ── */}
             <nav className={`nx hidden md:block fixed top-0 left-0 right-0 z-[500] dnav ${scrolled ? "dsc" : ""}`}
                 style={{ transform: navHidden ? "translateY(-100%)" : "translateY(0)", transition: "transform .3s cubic-bezier(.4,0,.2,1)" }}>
-                <div className="max-w-7xl mx-auto px-6 flex items-center gap-5" style={{ height: 70 }}>
+
+                {/* Top bar */}
+                <div className="max-w-7xl mx-auto px-6 flex items-center gap-4" style={{ height: 72 }}>
 
                     {/* Logo */}
                     <button onClick={() => go("/")} style={{ background: "none", border: "none", cursor: "pointer", display: "flex", alignItems: "center", gap: 10, flexShrink: 0 }}>
@@ -662,9 +440,9 @@ const Navbar = () => {
                         </span>
                     </button>
 
-                    {/* Search bar */}
-                    <form className={`dsrch-wrap ${searchFocused ? "focused" : ""}`} onSubmit={onDeskSubmit}>
-                        <FaSearch size={15} color={searchFocused ? "#c9a84c" : "#c0b8ae"} style={{ flexShrink: 0, transition: "color .2s" }} />
+                    {/* Search */}
+                    <form className={`dsrch-wrap ${searchFocused ? "focused" : ""}`} onSubmit={onDeskSubmit} style={{ margin: "0 8px" }}>
+                        <FaSearch size={14} color={searchFocused ? "#c9a84c" : "#c0b8ae"} style={{ flexShrink: 0, transition: "color .2s" }} />
                         <input
                             type="text"
                             value={deskSearch}
@@ -680,53 +458,65 @@ const Navbar = () => {
                                 <FaTimes size={12} />
                             </button>
                         )}
-                        <button type="submit" className="dsrch-btn"><FaSearch size={13} /> Search</button>
+                        <button type="submit" className="dsrch-btn">
+                            <FaSearch size={12} /> Search
+                        </button>
                     </form>
 
-                    {/* Right actions */}
-                    <div className="flex items-center gap-2" style={{ flexShrink: 0, marginLeft: "auto" }}>
+                    {/* Right section */}
+                    <div style={{ display: "flex", alignItems: "center", gap: 10, flexShrink: 0, marginLeft: "auto" }}>
+
+                        {/* Cart */}
                         <button onClick={goCart} className="dcart dact" style={{ position: "relative" }}>
                             <FaShoppingCart size={18} className="ci" style={{ color: "#666" }} />
                             {totalItems > 0 && <span className="nbadge nbadged">{totalItems > 9 ? "9+" : totalItems}</span>}
                         </button>
-                        <div style={{ width: 1, height: 22, background: "#e5e2da", margin: "0 4px" }} />
 
+                        <div style={{ width: 1, height: 24, background: "#e5e2da" }} />
+
+                        {/* ── USER SECTION ── */}
                         {isAuthenticated ? (
                             <div style={{ position: "relative" }} ref={userMenuRef}>
+                                {/* Trigger pill */}
                                 <button onClick={toggleMenu} className="dusr">
-                                    <div className="avt" style={{ width: 30, height: 30, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 900, fontSize: 13, color: "var(--navy)", flexShrink: 0 }}>
+                                    <div className="dusr-avatar">
                                         {user?.name?.[0]?.toUpperCase()}
                                     </div>
-                                    <span style={{ color: "var(--navy)", fontSize: 13.5, fontWeight: 500, maxWidth: 90, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                                        {user?.name?.split(" ")[0]}
-                                    </span>
-                                    <FaChevronDown size={9} style={{ color: "#aaa", transition: "transform .2s", transform: userMenuOpen ? "rotate(180deg)" : "none" }} />
+                                    <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-start" }}>
+                                        <span className="dusr-name">{user?.name?.split(" ")[0]}</span>
+                                        <span style={{ fontSize: 10, color: "#aaa", fontWeight: 400, lineHeight: 1 }}>My Account</span>
+                                    </div>
+                                    <FaChevronDown size={9} className="dusr-chevron" style={{ transform: userMenuOpen ? "rotate(180deg)" : "none" }} />
                                 </button>
+
+                                {/* Dropdown */}
                                 {userMenuOpen && (
-                                    <div className="nxdr ddrop" style={{ position: "absolute", right: 0, marginTop: 10, width: 240, zIndex: 50 }}>
-                                        <div style={{ background: "var(--cream)", padding: "14px 16px", borderBottom: "1px solid var(--cream2)" }}>
-                                            <div style={{ display: "flex", alignItems: "center", gap: 11 }}>
-                                                <div className="avt" style={{ width: 38, height: 38, borderRadius: "50%", color: "var(--navy)", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 900, fontSize: 15, flexShrink: 0 }}>
-                                                    {user?.name?.[0]?.toUpperCase()}
-                                                </div>
-                                                <div style={{ minWidth: 0 }}>
-                                                    <p style={{ fontWeight: 600, color: "var(--navy)", fontSize: 14, margin: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{user?.name}</p>
-                                                    <p style={{ fontSize: 11, color: "#999", margin: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{user?.email}</p>
-                                                </div>
+                                    <div className="nxdr ddrop" style={{ position: "absolute", right: 0, marginTop: 10, zIndex: 50 }}>
+                                        {/* Header with gradient */}
+                                        <div className="ddrop-header">
+                                            <div className="ddrop-avatar">
+                                                {user?.name?.[0]?.toUpperCase()}
+                                            </div>
+                                            <div style={{ minWidth: 0 }}>
+                                                <div className="ddrop-name">{user?.name}</div>
+                                                <div className="ddrop-email">{user?.email}</div>
                                             </div>
                                         </div>
+
+                                        {/* Menu items */}
                                         <div style={{ padding: "6px 0" }}>
                                             {MENU_ITEMS.map(({ icon, label, path }) => (
                                                 <button key={path} onClick={() => go(path)} className="dmi">
-                                                    <span className="dmic">{icon}</span><span>{label}</span>
+                                                    <span className="dmic">{icon}</span>
+                                                    <span>{label}</span>
                                                 </button>
                                             ))}
                                         </div>
+
+                                        {/* Logout */}
                                         <div style={{ borderTop: "1px solid var(--cream2)", padding: "6px" }}>
-                                            <button onClick={handleLogout} className="dmi" style={{ color: "#e55", borderRadius: 10 }}
-                                                onMouseEnter={e => { e.currentTarget.style.background = "#fff1f2"; e.currentTarget.style.color = "#dc2626"; }}
-                                                onMouseLeave={e => { e.currentTarget.style.background = "none"; e.currentTarget.style.color = "#e55"; }}>
-                                                <span className="dmic" style={{ background: "#fff1f2" }}><FaSignOutAlt size={11} color="#e55" /></span>
+                                            <button onClick={handleLogout} className="dmi dmi-logout" style={{ borderRadius: 10 }}>
+                                                <span className="dmic"><FaSignOutAlt size={11} /></span>
                                                 Sign out
                                             </button>
                                         </div>
@@ -734,6 +524,7 @@ const Navbar = () => {
                                 )}
                             </div>
                         ) : (
+                            /* Guest buttons */
                             <div style={{ display: "flex", gap: 8 }}>
                                 <button onClick={() => go("/login")} className="dsin">Sign In</button>
                                 <button onClick={() => go("/register")} className="dreg">Register</button>

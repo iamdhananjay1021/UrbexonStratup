@@ -1,74 +1,144 @@
-// utils/whatsapp.js
+/**
+ * whatsapp.js
+ * ─────────────────────────────────────────────────────────
+ * WhatsApp link generators — FREE, no API needed
+ * Opens WhatsApp with pre-filled message (wa.me links)
+ *
+ * For real WhatsApp Business API (Meta Cloud API — free tier):
+ *   Set WHATSAPP_PHONE_ID + WHATSAPP_TOKEN in .env
+ *   and use sendWhatsAppMessage() below
+ * ─────────────────────────────────────────────────────────
+ */
 
-// ===================================
-// ADMIN (OWNER) WHATSAPP
-// ===================================
-export const generateWhatsAppLink = (order) => {
-    const adminNumber = "918299519532"; // 91 included, no +
+const ADMIN_WHATSAPP = process.env.ADMIN_WHATSAPP_NUMBER || "918808485840"; // 91 + number
 
-    if (!order || !order.items?.length) {
-        console.error("Invalid order data for WhatsApp");
-        return "";
-    }
+/* ══════════════════════════════════════════════════════
+   1. ADMIN NOTIFICATION LINK
+   Opens WhatsApp on admin's phone with order summary
+══════════════════════════════════════════════════════ */
+export const generateAdminWhatsAppLink = (order) => {
+    if (!order?.items?.length) return "";
 
     const itemsText = order.items
-        .map((item, index) => {
-            const qty = Number(item.qty || item.quantity || 1);
+        .map((item, i) => {
+            const qty = Number(item.qty || 1);
             const price = Number(item.price || 0);
-            return `${index + 1}. ${item.name} x ${qty} = Rs.${price * qty}`;
+            return `${i + 1}. ${item.name} × ${qty} = ₹${(price * qty).toLocaleString("en-IN")}`;
         })
         .join("\n");
 
-    const message = `
-*NEW ORDER RECEIVED*
+    const isCOD = order.payment?.method === "COD";
 
-Order ID: ${order._id}
+    const message = [
+        `🛍️ *NEW ORDER — Urbexon*`,
+        ``,
+        `Order ID: #${order._id.toString().slice(-8).toUpperCase()}`,
+        `Invoice: ${order.invoiceNumber || "—"}`,
+        ``,
+        `*Items:*`,
+        itemsText,
+        ``,
+        `*Total: ₹${Number(order.totalAmount).toLocaleString("en-IN")}*`,
+        `Payment: ${isCOD ? "Cash on Delivery" : "Online Paid ✅"}`,
+        ``,
+        `Customer: ${order.customerName}`,
+        `Phone: ${order.phone}`,
+        `Address: ${order.address}`,
+        ``,
+        `Status: ${order.orderStatus}`,
+    ].join("\n");
 
-Items:
-${itemsText}
-
-Total Amount: Rs.${order.totalAmount}
-
-Customer: ${order.customerName}
-Phone: ${order.phone}
-Address: ${order.address}
-
-Payment: CASH ON DELIVERY
-Status: ${order.orderStatus}
-    `.trim();
-
-    return `https://wa.me/${adminNumber}?text=${encodeURIComponent(message)}`;
+    return `https://wa.me/${ADMIN_WHATSAPP}?text=${encodeURIComponent(message)}`;
 };
 
-// ===================================
-// USER WHATSAPP CONFIRMATION
-// ===================================
+/* ══════════════════════════════════════════════════════
+   2. USER CONFIRMATION LINK
+   Send user their order confirmation via WhatsApp
+══════════════════════════════════════════════════════ */
 export const generateUserWhatsAppLink = (order, status = "PLACED") => {
-    if (!order?.phone) {
-        console.error("Phone missing for user WhatsApp");
-        return "";
+    if (!order?.phone) return "";
+
+    const clean = order.phone.replace(/\D/g, "");
+    const number = clean.startsWith("91") ? clean : `91${clean}`;
+
+    const statusMessages = {
+        PLACED: "has been placed successfully! 🎉",
+        CONFIRMED: "has been confirmed. ✅",
+        PACKED: "is packed and ready to ship. 📦",
+        SHIPPED: "has been shipped! 🚚",
+        OUT_FOR_DELIVERY: "is out for delivery today! 🏠",
+        DELIVERED: "has been delivered. Thank you! 🙏",
+        CANCELLED: "has been cancelled.",
+    };
+
+    const statusText = statusMessages[status] || "has been updated.";
+    const trackLine = order.shipping?.trackingUrl
+        ? `\nTrack: ${order.shipping.trackingUrl}`
+        : "";
+
+    const message = [
+        `Hi ${order.customerName}! 👋`,
+        ``,
+        `Your Urbexon order *#${order._id.toString().slice(-8).toUpperCase()}* ${statusText}`,
+        ``,
+        `Amount: ₹${Number(order.totalAmount).toLocaleString("en-IN")}`,
+        `Payment: ${order.payment?.method === "COD" ? "Cash on Delivery" : "Online Paid"}`,
+        trackLine,
+        ``,
+        `For support: wa.me/${ADMIN_WHATSAPP}`,
+        `— Team Urbexon 🛍️`,
+    ].filter(l => l !== undefined).join("\n");
+
+    return `https://wa.me/${number}?text=${encodeURIComponent(message)}`;
+};
+
+/* ══════════════════════════════════════════════════════
+   3. META CLOUD API — Real WhatsApp message (FREE tier)
+   Optional: only if WHATSAPP_PHONE_ID + WHATSAPP_TOKEN set
+   Uses template messages (must be approved in Meta Business)
+══════════════════════════════════════════════════════ */
+export const sendWhatsAppMessage = async ({ to, templateName = "order_confirmation", components = [] }) => {
+    const phoneId = process.env.WHATSAPP_PHONE_ID;
+    const token = process.env.WHATSAPP_TOKEN;
+
+    if (!phoneId || !token) {
+        console.warn("[WhatsApp] WHATSAPP_PHONE_ID or WHATSAPP_TOKEN not set — skipping");
+        return { success: false, reason: "not_configured" };
     }
 
-    const cleanPhone = order.phone.replace(/\D/g, "");
-    const userNumber = cleanPhone.startsWith("91")
-        ? cleanPhone
-        : `91${cleanPhone}`;
+    const clean = String(to).replace(/\D/g, "");
+    const number = clean.startsWith("91") ? clean : `91${clean}`;
 
-    const message = `
-*ORDER ${status.replace("_", " ")}*
+    try {
+        const res = await fetch(`https://graph.facebook.com/v19.0/${phoneId}/messages`, {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                "Authorization": `Bearer ${token}`,
+            },
+            body: JSON.stringify({
+                messaging_product: "whatsapp",
+                to: number,
+                type: "template",
+                template: {
+                    name: templateName,
+                    language: { code: "en" },
+                    components,
+                },
+            }),
+            signal: AbortSignal.timeout(8_000),
+        });
 
-Hi ${order.customerName},
+        const data = await res.json();
+        if (data.error) {
+            console.error("[WhatsApp] API error:", data.error);
+            return { success: false, error: data.error };
+        }
 
-Your order has been placed successfully.
-
-Order ID: ${order._id}
-Total Amount: Rs.${order.totalAmount}
-Payment: Cash on Delivery
-
-We will keep you updated.
-
-- Urexon
-    `.trim();
-
-    return `https://wa.me/${userNumber}?text=${encodeURIComponent(message)}`;
+        console.log(`[WhatsApp] Sent template "${templateName}" to ${number}`);
+        return { success: true, message_id: data.messages?.[0]?.id };
+    } catch (err) {
+        console.error("[WhatsApp] sendMessage error:", err.message);
+        return { success: false, error: err.message };
+    }
 };

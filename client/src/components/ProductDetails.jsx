@@ -203,6 +203,7 @@ const ProductDetails = () => {
     }, []);
 
     useEffect(() => {
+        if (!id) return;   // ← YEH ADD KARO
         if (abortRef.current) abortRef.current.abort();
         const ctrl = new AbortController(); abortRef.current = ctrl;
         (async () => {

@@ -6,6 +6,8 @@ import {
     verifyOtp,
     resendOtp,
     getProfile,
+    updateProfile,
+    changePassword,
     saveLocation,
     getAllUsers,
     forgotPassword,
@@ -22,25 +24,25 @@ router.post("/register", register);
 router.post("/login", login);
 router.post("/verify-otp", verifyOtp);
 router.post("/resend-otp", resendOtp);
-router.post("/save-location", protect, saveLocation); // ✅ auth required — IDOR fix
 
-// ── User Password Reset  →  rvgift.com ─────────────────────
+// ── User Password Reset ─────────────────────────────────────
 router.post("/forgot-password", forgotPassword);
 router.post("/reset-password/:token", resetPassword);
 
-// ── Admin Login  →  admin.urbexon.in ───────────────────────
+// ── Admin Login ─────────────────────────────────────────────
 router.post("/admin/login", adminLogin);
 
-// ── Admin Password Reset  →  admin.urbexon.in ──────────────
-// Alag routes — ADMIN_FRONTEND_URL use karta hai
-// Role check: sirf admin/owner reset kar sakta hai
+// ── Admin Password Reset ────────────────────────────────────
 router.post("/admin/forgot-password", adminForgotPassword);
 router.post("/admin/reset-password/:token", adminResetPassword);
 
-// ── Protected ──────────────────────────────────────────────
+// ── Protected User Routes ───────────────────────────────────
 router.get("/profile", protect, getProfile);
+router.put("/profile", protect, updateProfile);       // ✅ NEW — edit name/phone
+router.put("/change-password", protect, changePassword);      // ✅ NEW — change password
+router.post("/save-location", protect, saveLocation);
 
-// ── Admin Only ─────────────────────────────────────────────
+// ── Admin Only ──────────────────────────────────────────────
 router.get("/users", protect, adminOnly, getAllUsers);
 
 export default router;

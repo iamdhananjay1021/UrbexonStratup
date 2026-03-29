@@ -1,3 +1,11 @@
+/**
+ * User.js
+ * ─────────────────────────────────────────────────────────
+ * ✅ emailOtpAttempts — brute force OTP protection
+ * ✅ addressSchema — max 5 addresses
+ * ✅ passwordResetToken / Expires
+ */
+
 import mongoose from "mongoose";
 
 /* ═══════════════════════════
@@ -44,13 +52,12 @@ const userSchema = new mongoose.Schema(
         password: {
             type: String,
             required: [true, "Password is required"],
-            minlength: [8, "Password must be at least 8 characters"], // ✅ 6 → 8
+            minlength: [8, "Password must be at least 8 characters"],
+            select: false, // Never returned in queries by default
         },
 
-        /* ── Mobile Number ── */
         phone: {
             type: String,
-            required: false,
             trim: true,
             match: [/^[6-9]\d{9}$/, "Please enter a valid 10-digit Indian mobile number"],
         },
@@ -63,8 +70,9 @@ const userSchema = new mongoose.Schema(
 
         /* ── Email Verification ── */
         isEmailVerified: { type: Boolean, default: false },
-        emailOtp: { type: String, default: undefined },
-        emailOtpExpires: { type: Date, default: undefined },
+        emailOtp: { type: String, default: undefined, select: false },
+        emailOtpExpires: { type: Date, default: undefined, select: false },
+        emailOtpAttempts: { type: Number, default: 0 },  // ✅ brute-force counter
 
         /* ── GPS Location ── */
         location: {
@@ -86,10 +94,15 @@ const userSchema = new mongoose.Schema(
         },
 
         /* ── Password Reset ── */
-        passwordResetToken: { type: String, default: undefined },
-        passwordResetExpires: { type: Date, default: undefined },
+        passwordResetToken: { type: String, default: undefined, select: false },
+        passwordResetExpires: { type: Date, default: undefined, select: false },
     },
     { timestamps: true }
 );
+
+/* ── Indexes ── */
+userSchema.index({ email: 1 });
+userSchema.index({ role: 1 });
+userSchema.index({ createdAt: -1 });
 
 export default mongoose.model("User", userSchema);

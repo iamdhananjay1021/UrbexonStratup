@@ -1,15 +1,32 @@
-// import express from "express";
-// import { protect, adminOnly } from "../middlewares/authMiddleware.js";
-// import {
-//     getShippingRate,
-//     trackOrder,
-//     getShippingLabel,
-// } from "../controllers/shiprocketController.js"; // BUG FIX: was "Shiprocketcontroller.js" (wrong case)
+/**
+ * shiprocketRoutes.js
+ */
 
-// const router = express.Router();
+import express from "express";
+import { protect, adminOnly } from "../middlewares/authMiddleware.js";
+import {
+    getShippingRate,
+    createShipment,
+    trackOrder,
+    getShippingLabel,
+    getManifest,
+    requestPickup,
+    shiprocketWebhook,
+} from "../controllers/shiprocketController.js";
 
-// router.post("/rate", getShippingRate);               // No auth — used in checkout
-// router.get("/track/:orderId", protect, trackOrder);
-// router.get("/label/:orderId", protect, adminOnly, getShippingLabel);
+const router = express.Router();
 
-// export default router;
+// ── Public ──────────────────────────────────────────
+router.post("/rate", getShippingRate);   // Checkout rate check
+router.post("/webhook", shiprocketWebhook); // Shiprocket status updates
+
+// ── User + Admin ─────────────────────────────────────
+router.get("/track/:orderId", protect, trackOrder);
+
+// ── Admin only ───────────────────────────────────────
+router.post("/create/:orderId", protect, adminOnly, createShipment);
+router.get("/label/:orderId", protect, adminOnly, getShippingLabel);
+router.get("/manifest/:orderId", protect, adminOnly, getManifest);
+router.post("/pickup/:orderId", protect, adminOnly, requestPickup);
+
+export default router;

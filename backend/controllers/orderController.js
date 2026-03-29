@@ -4,6 +4,7 @@
  * ✅ COD validated server-side
  * ✅ WhatsApp completely removed
  * ✅ Clean architecture
+ * ✅ Returns queue and processReturn added
  */
 
 import Razorpay from "razorpay";
@@ -80,7 +81,6 @@ export const createOrder = async (req, res) => {
             longitude,
         } = req.body;
 
-        // Basic validation
         if (!items?.length)
             return res.status(400).json({ message: "Cart is empty" });
         if (!customerName?.trim() || !phone?.trim() || !address?.trim())
@@ -88,7 +88,6 @@ export const createOrder = async (req, res) => {
         if (!/^[6-9]\d{9}$/.test(phone.trim()))
             return res.status(400).json({ message: "Invalid phone number" });
 
-        // COD validation — backend enforced
         if (paymentMethod === "COD") {
             if (!pincode || !/^\d{6}$/.test(pincode.trim()))
                 return res.status(400).json({ message: "Valid pincode required for COD orders" });
@@ -103,7 +102,6 @@ export const createOrder = async (req, res) => {
             }
         }
 
-        // ✅ Recalculate everything from DB — frontend totals IGNORED
         const method = paymentMethod === "COD" ? "COD" : "RAZORPAY";
         let pricing;
         try {
@@ -128,7 +126,7 @@ export const createOrder = async (req, res) => {
             email: email?.trim().toLowerCase().slice(0, 200) || "",
             latitude: latitude ? Number(latitude) : undefined,
             longitude: longitude ? Number(longitude) : undefined,
-            totalAmount: finalTotal,          // ✅ Backend calculated
+            totalAmount: finalTotal,
             platformFee,
             deliveryCharge,
             payment: {
@@ -152,11 +150,8 @@ export const createOrder = async (req, res) => {
         });
 
         const savedOrder = await order.save();
-
-        // Deduct stock after successful order save
         await deductStock(formattedItems);
 
-        // ✅ Respond immediately — no WhatsApp
         res.status(201).json({
             success: true,
             orderId: savedOrder._id,
@@ -167,7 +162,6 @@ export const createOrder = async (req, res) => {
             finalTotal,
         });
 
-        // Emails (async, after response)
         const userMail = getOrderStatusEmailTemplate({
             customerName: customerName.trim(),
             orderId: savedOrder._id,
@@ -194,9 +188,6 @@ export const createOrder = async (req, res) => {
 
 /* ══════════════════════════════════════════════
    GET CHECKOUT PRICING
-   ✅ Frontend calls this to get server-calculated prices
-   ✅ Shown before payment — no frontend price logic
-   GET /api/orders/pricing?paymentMethod=COD
 ══════════════════════════════════════════════ */
 export const getCheckoutPricing = async (req, res) => {
     try {
@@ -392,7 +383,7 @@ export const getAllOrders = async (req, res) => {
 };
 
 /* ══════════════════════════════════════════════
-   REFUND & ADMIN QUEUES (unchanged)
+   REFUND — REQUEST (USER)
 ══════════════════════════════════════════════ */
 export const requestRefund = async (req, res) => {
     try {
@@ -416,6 +407,9 @@ export const requestRefund = async (req, res) => {
     }
 };
 
+/* ══════════════════════════════════════════════
+   REFUND — PROCESS (ADMIN)
+══════════════════════════════════════════════ */
 export const processRefund = async (req, res) => {
     try {
         const { action, adminNote } = req.body;
@@ -465,6 +459,9 @@ export const processRefund = async (req, res) => {
     }
 };
 
+/* ══════════════════════════════════════════════
+   REFUND — RETRY (ADMIN)
+══════════════════════════════════════════════ */
 export const retryRefund = async (req, res) => {
     try {
         const order = await Order.findById(req.params.id);
@@ -480,16 +477,125 @@ export const retryRefund = async (req, res) => {
     }
 };
 
+/* ══════════════════════════════════════════════
+   FLAGGED ORDERS QUEUE (ADMIN)
+══════════════════════════════════════════════ */
 export const getFlaggedOrders = async (req, res) => {
     try {
         const orders = await Order.find({ "payment.flagged": true }).sort({ createdAt: -1 }).lean();
         res.json(orders);
-    } catch { res.status(500).json({ message: "Failed" }); }
+    } catch {
+        res.status(500).json({ message: "Failed" });
+    }
 };
 
+/* ══════════════════════════════════════════════
+   REFUND QUEUE (ADMIN)
+══════════════════════════════════════════════ */
 export const getRefundQueue = async (req, res) => {
     try {
         const orders = await Order.find({ "refund.status": "REQUESTED" }).sort({ "refund.requestedAt": -1 }).lean();
         res.json(orders);
-    } catch { res.status(500).json({ message: "Failed" }); }
+    } catch {
+        res.status(500).json({ message: "Failed" });
+    }
+};
+
+/* ══════════════════════════════════════════════
+   RETURN QUEUE (ADMIN)
+   GET /api/orders/admin/returns
+══════════════════════════════════════════════ */
+export const getReturnQueue = async (req, res) => {
+    try {
+        const orders = await Order.find({
+            "return.status": { $in: ["REQUESTED", "APPROVED", "PICKED_UP"] },
+        }).sort({ "return.requestedAt": -1 }).lean();
+        res.json(orders);
+    } catch (err) {
+        console.error("GET RETURN QUEUE:", err);
+        res.status(500).json({ message: "Failed to fetch return queue" });
+    }
+};
+
+/* ══════════════════════════════════════════════
+   PROCESS RETURN (ADMIN)
+   PUT /api/orders/:id/return/process
+   body: { action: "approve"|"reject"|"pickup"|"refund", adminNote, refundAmount }
+══════════════════════════════════════════════ */
+export const processReturn = async (req, res) => {
+    try {
+        const { action, adminNote, refundAmount } = req.body;
+
+        if (!["approve", "reject", "pickup", "refund"].includes(action))
+            return res.status(400).json({ message: "Invalid action. Use: approve | reject | pickup | refund" });
+
+        const order = await Order.findById(req.params.id);
+        if (!order) return res.status(404).json({ message: "Order not found" });
+        if (!order.return?.status || order.return.status === "NONE")
+            return res.status(400).json({ message: "No return request found on this order" });
+
+        const statusMap = {
+            approve: "APPROVED",
+            reject: "REJECTED",
+            pickup: "PICKED_UP",
+            refund: "REFUNDED",
+        };
+
+        order.return.status = statusMap[action];
+        order.return.adminNote = adminNote?.trim() || "";
+        order.return.processedAt = new Date();
+        order.return.processedBy = req.user._id;
+
+        // If refunding after return pickup — try Razorpay first, fallback for COD
+        if (action === "refund") {
+            const amount = refundAmount ? Number(refundAmount) : order.totalAmount;
+            const paymentId = order.payment?.razorpayPaymentId;
+
+            if (paymentId) {
+                try {
+                    const rzRef = await razorpay.payments.refund(paymentId, {
+                        amount: amount * 100,
+                        notes: { orderId: order._id.toString(), type: "RETURN_REFUND" },
+                    });
+                    order.refund = {
+                        requested: true,
+                        requestedAt: new Date(),
+                        reason: "Return refund",
+                        status: "PROCESSED",
+                        amount,
+                        razorpayRefundId: rzRef.id,
+                        processedAt: new Date(),
+                        processedBy: req.user._id,
+                    };
+                    order.payment.status = "REFUNDED";
+                    order.paymentLogs.push({
+                        event: "RETURN_REFUND_PROCESSED",
+                        amount,
+                        method: "RAZORPAY",
+                        meta: { refundId: rzRef.id },
+                        at: new Date(),
+                    });
+                    order.markModified("refund");
+                } catch (rzErr) {
+                    return res.status(500).json({
+                        message: "Razorpay refund failed: " + (rzErr.error?.description || rzErr.message),
+                    });
+                }
+            }
+            // COD orders — manual cash refund, just mark as refunded
+        }
+
+        order.markModified("return");
+        await order.save();
+
+        res.json({
+            success: true,
+            message: `Return ${action}d successfully`,
+            return: order.return,
+        });
+
+    } catch (err) {
+        console.error("PROCESS RETURN:", err);
+        res.status(500).json({ message: "Failed to process return" });
+    }
 };
