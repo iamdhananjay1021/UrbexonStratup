@@ -18,6 +18,7 @@ import xss from "xss-clean";
 
 import connectDB from "./config/db.js";
 import { getCacheStats } from "./utils/Cache.js";
+import { getStreamStats } from "./utils/realtimeHub.js";
 
 // Routes
 import authRoutes from "./routes/authRoutes.js";
@@ -150,6 +151,7 @@ app.get("/health", (_req, res) => {
         uptime: Math.floor(process.uptime()),
         memory: process.memoryUsage().heapUsed,
         cache: getCacheStats(),
+        realtime: getStreamStats(),
         timestamp: new Date().toISOString(),
     });
 });

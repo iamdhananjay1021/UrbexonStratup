@@ -32,6 +32,8 @@ export const initiateOnlinePayment = async ({
     onSuccess,
     onFailure,
     onCancel,
+    deliveryType = "ECOMMERCE_STANDARD",
+    distanceKm = 0,
 }) => {
     const loaded = await loadRazorpay();
     if (!loaded) throw new Error("Payment gateway failed to load. Please refresh and try again.");
@@ -72,6 +74,8 @@ export const initiateOnlinePayment = async ({
                             address: formatAddressString(address),
                             latitude: address.lat,
                             longitude: address.lng,
+                            deliveryType,
+                            distanceKm,
                             // ✅ No prices sent — server uses DB prices
                         },
                     });

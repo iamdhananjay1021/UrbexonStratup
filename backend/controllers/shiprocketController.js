@@ -15,6 +15,7 @@ import {
     schedulePickup,
     isMockMode,
 } from "../utils/Shiprocketservice.js";
+import { publishToUser } from "../utils/realtimeHub.js";
 
 /* ══════════════════════════════════════════════════════
    GET SHIPPING RATE
@@ -259,6 +260,12 @@ export const shiprocketWebhook = async (req, res) => {
                 }
 
                 await order.save();
+                publishToUser(order.user, "order_status_updated", {
+                    orderId: order._id,
+                    status: mappedStatus,
+                    shippingStatus: current_status,
+                    at: new Date().toISOString(),
+                });
                 console.log(`[Webhook] Order ${order._id} → ${mappedStatus} (AWB: ${awb})`);
             }
         }

@@ -63,6 +63,7 @@ const Checkout = () => {
         paymentMethod, selectPaymentMethod, payState, loading,
         codStatus, codDistance, codChecking, codAvailable, deliveryETA,
         pricing, pricingLoading,
+        deliveryType, setDeliveryType,
         mobileSummaryOpen, setMobileSummaryOpen,
         checkoutItems,
         handleContactContinue, handleAddressContinue,
@@ -800,6 +801,38 @@ const Checkout = () => {
                                                 )}
                                             </div>
                                         )}
+
+                                        {/* Delivery Mode */}
+                                        <div className="ck-card">
+                                            <h2 className="ck-card-title"><FaTruck className="ck-card-icon" /> Delivery Mode</h2>
+                                            <div style={{ display: "grid", gap: 10 }}>
+                                                <button
+                                                    onClick={() => setDeliveryType("ECOMMERCE_STANDARD")}
+                                                    className={`ck-pay-opt${deliveryType === "ECOMMERCE_STANDARD" ? " sel-online" : ""}`}>
+                                                    <div className="ck-pay-icon pi-online"><FaTruck size={13} /></div>
+                                                    <div style={{ flex: 1, textAlign: "left" }}>
+                                                        <p style={{ fontWeight: 700, fontSize: 14, color: "var(--ink)", marginBottom: 2 }}>E-commerce Standard</p>
+                                                        <p style={{ fontSize: 12, color: "var(--faint)" }}>3–5 business days · Shiprocket managed</p>
+                                                    </div>
+                                                    {deliveryType === "ECOMMERCE_STANDARD" && <FaCheckCircle className="ck-pay-check pc-online" />}
+                                                </button>
+
+                                                <button
+                                                    onClick={() => setDeliveryType("URBEXON_HOUR")}
+                                                    disabled={(codDistance || 0) <= 0 || (codDistance || 0) > 15}
+                                                    className={`ck-pay-opt${deliveryType === "URBEXON_HOUR" ? " sel-cod" : ""}`}
+                                                    style={{ opacity: (codDistance || 0) <= 0 || (codDistance || 0) > 15 ? 0.6 : 1 }}>
+                                                    <div className="ck-pay-icon pi-cod"><FaStar size={13} /></div>
+                                                    <div style={{ flex: 1, textAlign: "left" }}>
+                                                        <p style={{ fontWeight: 700, fontSize: 14, color: "var(--ink)", marginBottom: 2 }}>Urbexon Hour</p>
+                                                        <p style={{ fontSize: 12, color: "var(--faint)" }}>
+                                                            45–120 mins · 15 km radius · {codDistance !== null ? `${Number(codDistance).toFixed(1)} km away` : "distance pending"}
+                                                        </p>
+                                                    </div>
+                                                    {deliveryType === "URBEXON_HOUR" && <FaCheckCircle className="ck-pay-check pc-cod" />}
+                                                </button>
+                                            </div>
+                                        </div>
 
                                         {/* Payment */}
                                         <div className="ck-card">

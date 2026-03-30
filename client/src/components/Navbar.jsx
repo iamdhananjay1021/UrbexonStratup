@@ -2,7 +2,7 @@ import { useNavigate, useLocation } from "react-router-dom";
 import { useState, useEffect, useRef, useCallback, memo } from "react";
 import {
     FaSearch, FaShoppingCart, FaTimes,
-    FaUser, FaBox, FaSignOutAlt, FaHome,
+    FaUser, FaBox, FaSignOutAlt, FaHome, FaStore,
     FaChevronDown, FaChevronRight,
 } from "react-icons/fa";
 import { useSelector } from "react-redux";
@@ -20,10 +20,18 @@ LogoMark.displayName = "LogoMark";
 
 const POPULAR_SEARCHES = ["Fashion", "Electronics", "Watches", "Footwear", "Home Decor"];
 
-const MENU_ITEMS = [
-    { icon: <FaUser size={13} />, label: "My Profile", path: "/profile" },
-    { icon: <FaBox size={13} />, label: "My Orders", path: "/orders" },
-];
+const getMenuItems = (user) => {
+    const items = [
+        { icon: <FaUser size={13} />, label: "My Profile", path: "/profile" },
+        { icon: <FaBox size={13} />, label: "My Orders", path: "/orders" },
+    ];
+
+    if (user?.role === "user") {
+        items.push({ icon: <FaStore size={13} />, label: "Vendor Panel", path: "/vendor" });
+    }
+
+    return items;
+};
 
 const CATEGORIES = [
     { label: "Men's Fashion", cat: "mens-fashion" },
@@ -40,6 +48,7 @@ const Navbar = () => {
     const location = useLocation();
     const { user, logout } = useAuth();
     const isAuthenticated = Boolean(user);
+    const menuItems = getMenuItems(user);
 
     const [mobileOpen, setMobileOpen] = useState(false);
     const [userMenuOpen, setUserMenuOpen] = useState(false);
@@ -368,7 +377,7 @@ const Navbar = () => {
                             {isAuthenticated && (
                                 <>
                                     <p className="drw-label">Account</p>
-                                    {MENU_ITEMS.map(({ icon, label, path }) => (
+                                    {menuItems.map(({ icon, label, path }) => (
                                         <button key={path} onClick={() => go(path)} className="di">
                                             <span className="dic">{icon}</span>{label}
                                         </button>
@@ -505,7 +514,7 @@ const Navbar = () => {
 
                                         {/* Menu items */}
                                         <div style={{ padding: "6px 0" }}>
-                                            {MENU_ITEMS.map(({ icon, label, path }) => (
+                                            {menuItems.map(({ icon, label, path }) => (
                                                 <button key={path} onClick={() => go(path)} className="dmi">
                                                     <span className="dmic">{icon}</span>
                                                     <span>{label}</span>
