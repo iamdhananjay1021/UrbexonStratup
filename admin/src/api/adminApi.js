@@ -33,10 +33,24 @@ api.interceptors.response.use(
     (response) => response,
     (error) => {
         if (error.response?.status === 401) {
-            localStorage.removeItem("adminAuth");
-            const path = window.location.pathname;
-            if (!path.includes("/admin/login")) {
-                window.location.replace("/admin/login");
+            const msg = String(error.response?.data?.message || "").toLowerCase();
+            const reqUrl = String(error.config?.url || "").toLowerCase();
+            const isAuthRoute = reqUrl.includes("/auth/admin/login")
+                || reqUrl.includes("/auth/admin/forgot-password")
+                || reqUrl.includes("/auth/admin/reset-password");
+            const isTokenError = msg.includes("token")
+                || msg.includes("not authorized")
+                || msg.includes("not authenticated")
+                || msg.includes("invalid token")
+                || msg.includes("user not found");
+
+            // Only force logout when backend explicitly indicates auth/token issue.
+            if (!isAuthRoute && isTokenError) {
+                localStorage.removeItem("adminAuth");
+                const path = window.location.pathname;
+                if (!path.includes("/admin/login")) {
+                    window.location.assign("/admin/login");
+                }
             }
         }
 
