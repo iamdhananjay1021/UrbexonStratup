@@ -65,6 +65,7 @@ export const useCheckout = (buyNowItem = null) => {
     /* ── Pricing (server-driven) ── */
     const [pricing, setPricing] = useState(null);  // { itemsTotal, deliveryCharge, finalTotal, ... }
     const [pricingLoading, setPricingLoading] = useState(false);
+    const [deliveryType, setDeliveryType] = useState("ECOMMERCE_STANDARD");
 
     /* ── Mobile ── */
     const [mobileSummaryOpen, setMobileSummaryOpen] = useState(false);
@@ -107,7 +108,11 @@ export const useCheckout = (buyNowItem = null) => {
         pricingDebounce.current = setTimeout(async () => {
             try {
                 setPricingLoading(true);
-                const data = await fetchCheckoutPricing(checkoutItems, method || paymentMethod || "RAZORPAY");
+                const data = await fetchCheckoutPricing(checkoutItems, method || paymentMethod || "RAZORPAY", {
+                    deliveryType,
+                    distanceKm: codDistance || 0,
+                    pincode: selectedAddress?.pincode,
+                });
                 setPricing(data);
             } catch {
                 // Fallback: keep existing pricing
@@ -115,7 +120,7 @@ export const useCheckout = (buyNowItem = null) => {
                 setPricingLoading(false);
             }
         }, 300);
-    }, [checkoutItems, paymentMethod]);
+    }, [checkoutItems, paymentMethod, deliveryType, codDistance, selectedAddress?.pincode]);
 
     // Initial pricing fetch
     useEffect(() => {
@@ -126,6 +131,13 @@ export const useCheckout = (buyNowItem = null) => {
     useEffect(() => {
         if (paymentMethod) refreshPricing(paymentMethod === "cod" ? "COD" : "RAZORPAY");
     }, [paymentMethod]); // eslint-disable-line
+
+
+    useEffect(() => {
+        if (step === 3) {
+            refreshPricing(paymentMethod ? (paymentMethod === "cod" ? "COD" : "RAZORPAY") : "RAZORPAY");
+        }
+    }, [deliveryType, codDistance]);
 
     /* ════════════════════════════════════════
        CHECK COD AVAILABILITY
@@ -153,6 +165,13 @@ export const useCheckout = (buyNowItem = null) => {
     }, [selectedAddress?.pincode, step]);
 
     const codAvailable = codStatus === "available";
+
+    useEffect(() => {
+        if ((codDistance || 0) > 15 && deliveryType === "URBEXON_HOUR") {
+            setDeliveryType("ECOMMERCE_STANDARD");
+        }
+    }, [codDistance, deliveryType]);
+
 
     /* ════════════════════════════════════════
        STEP NAVIGATION
@@ -242,6 +261,8 @@ export const useCheckout = (buyNowItem = null) => {
                 contact,
                 address: selectedAddress,
                 pincode: selectedAddress?.pincode,
+                deliveryType,
+                distanceKm: codDistance || 0,
             });
 
             if (!buyNowItem) clear();
@@ -290,6 +311,8 @@ export const useCheckout = (buyNowItem = null) => {
                     setPayState("failed");
                     setLoading(false);
                 },
+                deliveryType,
+                distanceKm: codDistance || 0,
             });
         } catch (err) {
             setError(err.message || "Payment initialization failed.");
@@ -332,6 +355,8 @@ export const useCheckout = (buyNowItem = null) => {
         deliveryETA,
         pricing,
         pricingLoading,
+        deliveryType,
+        setDeliveryType,
         mobileSummaryOpen, setMobileSummaryOpen,
         checkoutItems,
 

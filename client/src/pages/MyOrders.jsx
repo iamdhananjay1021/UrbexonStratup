@@ -4,6 +4,7 @@ import { useDispatch, useSelector } from "react-redux";
 import { getMyOrders } from "../features/orders/orderSlice";
 import { FaBoxOpen, FaSync, FaShoppingBag, FaArrowRight, FaCheckCircle, FaFileInvoice } from "react-icons/fa";
 import api from "../api/axios";
+import useOrderRealtime from "../hooks/useOrderRealtime";
 
 const STATUS_CONFIG = {
     PLACED: { label: "Order Placed", color: "text-yellow-600", bg: "bg-yellow-50", border: "border-yellow-200", dot: "bg-yellow-400", icon: "🛒" },
@@ -30,6 +31,16 @@ const MyOrders = () => {
     const [cancellingId, setCancellingId] = useState(null);
     const [confirmCancelId, setConfirmCancelId] = useState(null);
     const [downloadingId, setDownloadingId] = useState(null);
+    const [liveMessage, setLiveMessage] = useState("");
+
+
+    useOrderRealtime({
+        enabled: true,
+        onStatusUpdate: async (payload) => {
+            setLiveMessage(`Live update: Order #${String(payload.orderId).slice(-6).toUpperCase()} is now ${String(payload.status || "updated").replaceAll("_", " ")}`);
+            await dispatch(getMyOrders());
+        },
+    });
 
     // ── Smart fetch: only call API if data is stale or missing ──────────────
     // This prevents re-fetching on every mount (e.g. back button, tab switch).
@@ -180,6 +191,12 @@ const MyOrders = () => {
 
                         {status === "failed" && error && (
                             <div className="bg-red-50 border border-red-200 text-red-600 px-4 py-3 rounded-sm text-sm">⚠️ {error}</div>
+                        )}
+
+                        {liveMessage && (
+                            <div className="bg-blue-50 border border-blue-200 text-blue-700 px-4 py-3 rounded-sm text-sm font-semibold">
+                                {liveMessage}
+                            </div>
                         )}
 
                         {orders.length === 0 && status === "succeeded" && (

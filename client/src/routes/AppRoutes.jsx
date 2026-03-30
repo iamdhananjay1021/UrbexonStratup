@@ -3,6 +3,7 @@ import { Routes, Route, useLocation } from "react-router-dom";
 import ProtectedRoute from "../components/ProtectedRoute";
 import PageTransition from "../components/PageTransition";
 import MainLayout from "../layouts/MainLayout";
+import VendorRoute from "../components/VendorRoute";
 
 // ── Eagerly loaded (critical path)
 import Login from "../pages/Login";
