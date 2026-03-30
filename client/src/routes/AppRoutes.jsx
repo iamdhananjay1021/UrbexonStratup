@@ -27,6 +27,12 @@ const ContactUs = lazy(() => import("../pages/Contactus"));
 const CategoryPage = lazy(() => import("../pages/Categorypage"));  // ✅ actual filename: Categorypage.jsx
 const DealsPage = lazy(() => import("../pages/Dealspage"));     // ✅ actual filename: Dealspage.jsx
 const NotFound = lazy(() => import("../pages/Notfound"));      // ✅ actual filename: Notfound.jsx
+const VendorLayout = lazy(() => import("../components/vendor/VendorLayout"));
+const VendorApply = lazy(() => import("../pages/vendor/VendorApply"));
+const VendorStatus = lazy(() => import("../pages/vendor/VendorStatus"));
+const VendorDashboard = lazy(() => import("../pages/vendor/VendorDashboard"));
+const VendorEarnings = lazy(() => import("../pages/vendor/VendorEarnings"));
+const VendorProfile = lazy(() => import("../pages/vendor/VendorProfile"));
 
 /* ── Page loader ── */
 const PageLoader = () => (
@@ -101,6 +107,18 @@ const AppRoutes = () => {
 
                     </Route>
 
+
+                    {/* ── Vendor portal ── */}
+                    <Route element={<ProtectedRoute />}>
+                        <Route path="/vendor" element={<VendorLayout />}>
+                            <Route index element={<VendorStatus />} />
+                            <Route path="status" element={<VendorStatus />} />
+                            <Route path="apply" element={<VendorApply />} />
+                            <Route path="dashboard" element={<VendorDashboard />} />
+                            <Route path="earnings" element={<VendorEarnings />} />
+                            <Route path="profile" element={<VendorProfile />} />
+                        </Route>
+                    </Route>
                     {/* 404 */}
                     <Route path="*" element={<NotFound />} />
 
