@@ -160,7 +160,7 @@ const AdminDashboard = () => {
             if (Array.isArray(products)) {
                 setStats(prev => prev
                     ? { ...prev, totalProducts: products.length }
-                    : { totalOrders: 0, revenue: 0, pending: 0, delivered: 0, inTransit: 0, totalProducts: products.length }
+                    : { totalOrders: 0, revenue: 0, pending: 0, delivered: 0, inTransit: 0, localDispatch: 0, totalProducts: products.length }
                 );
             }
             setLoadingProducts(false);

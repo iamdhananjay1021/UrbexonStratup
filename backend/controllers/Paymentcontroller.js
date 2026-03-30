@@ -18,8 +18,6 @@ const razorpay = new Razorpay({
     key_id: process.env.RAZORPAY_KEY_ID,
     key_secret: process.env.RAZORPAY_KEY_SECRET,
 });
-console.log("KEY_ID:", process.env.RAZORPAY_KEY_ID);
-console.log("KEY_SECRET:", process.env.RAZORPAY_KEY_SECRET);
 /* ════════════════════════════════════════
    1. CREATE RAZORPAY ORDER
    Frontend sends items → backend calculates amount
@@ -27,7 +25,7 @@ console.log("KEY_SECRET:", process.env.RAZORPAY_KEY_SECRET);
 ════════════════════════════════════════ */
 export const createRazorpayOrder = async (req, res) => {
     try {
-        const { items, currency = "INR" } = req.body;
+        const { items, currency = "INR", deliveryType, distanceKm, pincode } = req.body;
 
         if (!items?.length)
             return res.status(400).json({ message: "Cart is empty" });

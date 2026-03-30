@@ -41,6 +41,9 @@ export const initiateOnlinePayment = async ({
     // ✅ Server creates Razorpay order with DB-calculated amount
     const { data: rpOrder } = await api.post("/payment/create-order", {
         items: serializeItems(items),
+        deliveryType,
+        distanceKm,
+        pincode: address?.pincode,
         // ✅ No amount from frontend — server calculates from DB prices
     });
 
