@@ -32,6 +32,8 @@ export const initiateOnlinePayment = async ({
     onSuccess,
     onFailure,
     onCancel,
+    deliveryType = "ECOMMERCE_STANDARD",
+    distanceKm = 0,
 }) => {
     const loaded = await loadRazorpay();
     if (!loaded) throw new Error("Payment gateway failed to load. Please refresh and try again.");
@@ -39,6 +41,9 @@ export const initiateOnlinePayment = async ({
     // ✅ Server creates Razorpay order with DB-calculated amount
     const { data: rpOrder } = await api.post("/payment/create-order", {
         items: serializeItems(items),
+        deliveryType,
+        distanceKm,
+        pincode: address?.pincode,
         // ✅ No amount from frontend — server calculates from DB prices
     });
 
@@ -72,6 +77,9 @@ export const initiateOnlinePayment = async ({
                             address: formatAddressString(address),
                             latitude: address.lat,
                             longitude: address.lng,
+                            deliveryType,
+                            distanceKm,
+                            pincode: address?.pincode,
                             // ✅ No prices sent — server uses DB prices
                         },
                     });

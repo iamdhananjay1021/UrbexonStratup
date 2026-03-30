@@ -8,6 +8,7 @@
  */
 
 import Razorpay from "razorpay";
+import jwt from "jsonwebtoken";
 import Order, { generateInvoiceNumber } from "../models/Order.js";
 import Product from "../models/Product.js";
 import { sendEmail } from "../utils/emailService.js";
@@ -17,6 +18,7 @@ import { generateInvoiceBuffer } from "../utils/invoiceEmailHelper.js";
 import { checkCODEligibility } from "./addressController.js";
 import { calculateOrderPricing, deductStock, restoreStock } from "../services/pricing.js";
 import { DELIVERY_CONFIG } from "../config/deliveryConfig.js";
+import { addUserStream, removeUserStream, publishToUser } from "../utils/realtimeHub.js";
 
 const razorpay = new Razorpay({
     key_id: process.env.RAZORPAY_KEY_ID,
@@ -61,6 +63,43 @@ const checkFraud = async ({ userId, ip, amount, paymentId }) => {
     return { flagged: reasons.length > 0, reasons };
 };
 
+
+
+/* ══════════════════════════════════════════════
+   REALTIME ORDER STREAM (SSE)
+   GET /api/orders/stream?token=JWT
+══════════════════════════════════════════════ */
+export const streamMyOrderEvents = async (req, res) => {
+    try {
+        const token = req.query?.token;
+        if (!token) return res.status(401).json({ message: "Token required" });
+
+        const decoded = jwt.verify(token, process.env.JWT_SECRET);
+        const userId = decoded.id || decoded._id;
+        if (!userId) return res.status(401).json({ message: "Invalid token" });
+
+        res.setHeader("Content-Type", "text/event-stream");
+        res.setHeader("Cache-Control", "no-cache, no-transform");
+        res.setHeader("Connection", "keep-alive");
+        res.flushHeaders?.();
+
+        addUserStream(userId, res);
+        res.write(`event: connected\ndata: ${JSON.stringify({ ok: true, userId })}\n\n`);
+
+        const heartbeat = setInterval(() => {
+            res.write(`event: ping\ndata: ${JSON.stringify({ ts: Date.now() })}\n\n`);
+        }, 25000);
+
+        req.on("close", () => {
+            clearInterval(heartbeat);
+            removeUserStream(userId, res);
+            res.end();
+        });
+    } catch {
+        res.status(401).json({ message: "Unauthorized stream access" });
+    }
+};
+
 /* ══════════════════════════════════════════════
    CREATE ORDER (COD)
    ✅ Prices recalculated from DB — frontend totalAmount IGNORED
@@ -77,6 +116,8 @@ export const createOrder = async (req, res) => {
             email,
             pincode,
             paymentMethod,
+            deliveryType,
+            distanceKm,
             latitude,
             longitude,
         } = req.body;
@@ -105,12 +146,12 @@ export const createOrder = async (req, res) => {
         const method = paymentMethod === "COD" ? "COD" : "RAZORPAY";
         let pricing;
         try {
-            pricing = await calculateOrderPricing(items, method);
+            pricing = await calculateOrderPricing(items, method, { deliveryType, distanceKm, pincode });
         } catch (err) {
             return res.status(400).json({ message: err.message });
         }
 
-        const { formattedItems, itemsTotal, deliveryCharge, platformFee, finalTotal } = pricing;
+        const { formattedItems, itemsTotal, deliveryCharge, platformFee, finalTotal, deliveryETA, deliveryProvider, deliveryType: finalDeliveryType, distanceKm: finalDistanceKm } = pricing;
 
         const ip = getClientIp(req);
         const fraudCheck = await checkFraud({ userId: req.user._id, ip, amount: finalTotal });
@@ -129,6 +170,12 @@ export const createOrder = async (req, res) => {
             totalAmount: finalTotal,
             platformFee,
             deliveryCharge,
+            delivery: {
+                type: finalDeliveryType,
+                distanceKm: finalDistanceKm,
+                provider: deliveryProvider,
+                eta: deliveryETA,
+            },
             payment: {
                 method,
                 status: "PENDING",
@@ -160,6 +207,9 @@ export const createOrder = async (req, res) => {
             itemsTotal,
             deliveryCharge,
             finalTotal,
+            deliveryType: finalDeliveryType,
+            deliveryETA,
+            deliveryProvider,
         });
 
         const userMail = getOrderStatusEmailTemplate({
@@ -191,7 +241,7 @@ export const createOrder = async (req, res) => {
 ══════════════════════════════════════════════ */
 export const getCheckoutPricing = async (req, res) => {
     try {
-        const { items, paymentMethod } = req.body;
+        const { items, paymentMethod, deliveryType, distanceKm, pincode } = req.body;
 
         if (!items?.length)
             return res.status(400).json({ message: "Cart is empty" });
@@ -199,12 +249,16 @@ export const getCheckoutPricing = async (req, res) => {
         const method = paymentMethod === "COD" ? "COD" : "RAZORPAY";
 
         try {
-            const pricing = await calculateOrderPricing(items, method);
+            const pricing = await calculateOrderPricing(items, method, { deliveryType, distanceKm, pincode });
             res.json({
                 itemsTotal: pricing.itemsTotal,
                 deliveryCharge: pricing.deliveryCharge,
                 platformFee: pricing.platformFee,
                 finalTotal: pricing.finalTotal,
+                deliveryType: pricing.deliveryType,
+                distanceKm: pricing.distanceKm,
+                deliveryETA: pricing.deliveryETA,
+                deliveryProvider: pricing.deliveryProvider,
                 freeDeliveryThreshold: DELIVERY_CONFIG.FREE_DELIVERY_THRESHOLD,
                 amountForFreeDelivery: Math.max(0, DELIVERY_CONFIG.FREE_DELIVERY_THRESHOLD - pricing.itemsTotal),
             });
@@ -332,6 +386,12 @@ export const updateOrderStatus = async (req, res) => {
 
         if (status === "CANCELLED") await restoreStock(order.items);
 
+        publishToUser(order.user, "order_status_updated", {
+            orderId: order._id,
+            status,
+            at: new Date().toISOString(),
+        });
+
         res.json(order);
 
         if (order.email && !order.email.includes("@placeholder.com")) {
@@ -379,6 +439,82 @@ export const getAllOrders = async (req, res) => {
         res.json({ orders, total, page, totalPages: Math.ceil(total / limit), limit });
     } catch {
         res.status(500).json({ message: "Failed to fetch orders" });
+    }
+};
+
+
+
+/* ══════════════════════════════════════════════
+   ADMIN — LOCAL DELIVERY QUEUE (URBEXON HOUR)
+══════════════════════════════════════════════ */
+export const getLocalDeliveryQueue = async (req, res) => {
+    try {
+        const page = Math.max(1, parseInt(req.query.page) || 1);
+        const limit = Math.min(50, parseInt(req.query.limit) || 20);
+        const skip = (page - 1) * limit;
+
+        const filter = {
+            "delivery.type": "URBEXON_HOUR",
+            orderStatus: { $nin: ["DELIVERED", "CANCELLED"] },
+        };
+
+        const [orders, total] = await Promise.all([
+            Order.find(filter).sort({ createdAt: -1 }).skip(skip).limit(limit).lean(),
+            Order.countDocuments(filter),
+        ]);
+
+        res.json({ orders, total, page, totalPages: Math.ceil(total / limit), limit });
+    } catch (err) {
+        console.error("LOCAL DELIVERY QUEUE:", err);
+        res.status(500).json({ message: "Failed to fetch local delivery queue" });
+    }
+};
+
+/* ══════════════════════════════════════════════
+   ADMIN — ASSIGN LOCAL DELIVERY
+══════════════════════════════════════════════ */
+export const assignLocalDelivery = async (req, res) => {
+    try {
+        const { provider, riderName, riderPhone, note } = req.body;
+        const allowed = ["LOCAL_RIDER", "VENDOR_SELF", "SHIPROCKET"];
+        if (!allowed.includes(provider)) {
+            return res.status(400).json({ message: "Invalid provider" });
+        }
+
+        const order = await Order.findById(req.params.id);
+        if (!order) return res.status(404).json({ message: "Order not found" });
+        if (order.delivery?.type !== "URBEXON_HOUR") {
+            return res.status(400).json({ message: "Only Urbexon Hour orders can be assigned here" });
+        }
+
+        order.delivery.provider = provider;
+        order.delivery.riderName = String(riderName || "").trim().slice(0, 100);
+        order.delivery.riderPhone = String(riderPhone || "").trim().slice(0, 20);
+        order.delivery.note = String(note || "").trim().slice(0, 500);
+        order.delivery.assignedAt = new Date();
+        order.markModified("delivery");
+
+        if (order.orderStatus === "PLACED") {
+            order.orderStatus = "CONFIRMED";
+            const existing = order.statusTimeline?.toObject ? order.statusTimeline.toObject() : { ...order.statusTimeline };
+            order.statusTimeline = { ...existing, confirmedAt: new Date() };
+            order.markModified("statusTimeline");
+        }
+
+        await order.save();
+
+        publishToUser(order.user, "order_status_updated", {
+            orderId: order._id,
+            status: order.orderStatus,
+            provider,
+            assignedAt: order.delivery.assignedAt,
+            at: new Date().toISOString(),
+        });
+
+        res.json({ success: true, order });
+    } catch (err) {
+        console.error("ASSIGN LOCAL DELIVERY:", err);
+        res.status(500).json({ message: "Failed to assign local delivery" });
     }
 };
 

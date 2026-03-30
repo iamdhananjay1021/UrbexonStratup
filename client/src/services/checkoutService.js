@@ -11,10 +11,13 @@ import api from "../api/axios";
  * @param {Array} items - cart items
  * @param {"COD"|"RAZORPAY"} paymentMethod
  */
-export const fetchCheckoutPricing = async (items, paymentMethod = "RAZORPAY") => {
+export const fetchCheckoutPricing = async (items, paymentMethod = "RAZORPAY", options = {}) => {
     const { data } = await api.post("/orders/pricing", {
         items: serializeItems(items),
         paymentMethod,
+        deliveryType: options.deliveryType,
+        distanceKm: options.distanceKm,
+        pincode: options.pincode,
     });
     return data;
     // Returns: { itemsTotal, deliveryCharge, platformFee, finalTotal, freeDeliveryThreshold, amountForFreeDelivery }
@@ -73,7 +76,7 @@ export const setDefaultAddress = async (addressId) => {
  * Place COD order
  * ✅ Does NOT send totalAmount — backend calculates
  */
-export const placeCODOrder = async ({ items, contact, address, pincode }) => {
+export const placeCODOrder = async ({ items, contact, address, pincode, deliveryType = "ECOMMERCE_STANDARD", distanceKm = 0 }) => {
     const { data } = await api.post("/orders", {
         items: serializeItems(items),
         customerName: contact.name,
@@ -84,6 +87,8 @@ export const placeCODOrder = async ({ items, contact, address, pincode }) => {
         latitude: address.lat,
         longitude: address.lng,
         paymentMethod: "COD",
+        deliveryType,
+        distanceKm,
         // ✅ NO totalAmount sent — backend calculates from DB prices
     });
     return data;

@@ -11,6 +11,9 @@ import {
     calcItemsTotal,
     calcFinalAmount,
     DELIVERY_CONFIG,
+    DELIVERY_TYPES,
+    getDeliveryETA,
+    getDeliveryProvider,
 } from "../config/deliveryConfig.js";
 
 /**
@@ -116,9 +119,12 @@ export const restoreStock = async (items) => {
  * @param {"COD"|"RAZORPAY"} paymentMethod
  * @returns {{ formattedItems, itemsTotal, deliveryCharge, finalTotal }}
  */
-export const calculateOrderPricing = async (frontendItems, paymentMethod) => {
+export const calculateOrderPricing = async (frontendItems, paymentMethod, options = {}) => {
     const { formattedItems, itemsTotal } = await validateAndPriceItems(frontendItems);
-    const deliveryCharge = calcDeliveryCharge(itemsTotal, paymentMethod);
+    const deliveryType = options.deliveryType || DELIVERY_TYPES.ECOMMERCE_STANDARD;
+    const distanceKm = Number(options.distanceKm || 0);
+
+    const deliveryCharge = calcDeliveryCharge(itemsTotal, paymentMethod, { deliveryType, distanceKm });
     const finalTotal = calcFinalAmount(itemsTotal, deliveryCharge);
 
     return {
@@ -127,5 +133,9 @@ export const calculateOrderPricing = async (frontendItems, paymentMethod) => {
         deliveryCharge,
         platformFee: DELIVERY_CONFIG.PLATFORM_FEE,
         finalTotal,
+        deliveryType,
+        distanceKm,
+        deliveryETA: getDeliveryETA({ pincode: options.pincode, paymentMethod, deliveryType }),
+        deliveryProvider: getDeliveryProvider({ deliveryType, distanceKm }),
     };
 };
