@@ -19,6 +19,9 @@ const PriceSummary = memo(({ pricing, paymentMethod, checkoutItems, pricingLoadi
         finalTotal = 0,
         amountForFreeDelivery = 0,
         freeDeliveryThreshold = 499,
+        deliveryType = "ECOMMERCE_STANDARD",
+        deliveryETA = "",
+        deliveryProvider = "",
     } = pricing || {};
 
     const isFreeDelivery = deliveryCharge === 0 && paymentMethod !== "cod";
@@ -64,6 +67,17 @@ const PriceSummary = memo(({ pricing, paymentMethod, checkoutItems, pricingLoadi
                             <span className="ck-price-total-lbl">Total</span>
                             <span className="ck-price-total-val">₹{fmt(finalTotal)}</span>
                         </div>
+
+                        <div className="ck-chip ck-chip-muted" style={{ marginTop: 8 }}>
+                            <FaTruck size={10} />
+                            <span>{deliveryType === "URBEXON_HOUR" ? "Urbexon Hour" : "E-commerce Standard"} · {deliveryETA || "ETA pending"}</span>
+                        </div>
+                        {deliveryProvider && (
+                            <div className="ck-chip ck-chip-muted">
+                                <FaShieldAlt size={10} />
+                                <span>Provider: {deliveryProvider.replaceAll("_", " ")}</span>
+                            </div>
+                        )}
 
                         {/* Contextual chips */}
                         {paymentMethod === "online" && isFreeDelivery && (

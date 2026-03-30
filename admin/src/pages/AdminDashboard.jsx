@@ -5,7 +5,7 @@ import {
     FiPackage, FiShoppingBag, FiPlusCircle, FiDollarSign,
     FiTruck, FiCheckCircle, FiClock, FiArrowRight,
     FiMail, FiPhone, FiTag, FiChevronDown, FiChevronRight,
-    FiMapPin, FiUsers,
+    FiMapPin,
 } from "react-icons/fi";
 
 /* ── Design tokens ── */
@@ -141,24 +141,26 @@ const AdminDashboard = () => {
                 const delivered = orders.filter(o => o.orderStatus === "DELIVERED");
                 const pending = orders.filter(o => o.orderStatus === "PLACED");
                 const inTransit = orders.filter(o => ["SHIPPED", "OUT_FOR_DELIVERY"].includes(o.orderStatus));
+                const localDispatch = orders.filter(o => o.delivery?.type === "URBEXON_HOUR" && !["DELIVERED", "CANCELLED"].includes(o.orderStatus)).length;
                 setStats({
                     totalOrders: totalOrderCount,
                     revenue: delivered.reduce((s, o) => s + (o.totalAmount || 0), 0),
                     pending: pending.length,
                     delivered: delivered.length,
                     inTransit: inTransit.length,
+                    localDispatch,
                     totalProducts: Array.isArray(products) ? products.length : 0,
                 });
                 setRecentOrders(orders.slice(0, 6));
             } else {
-                setStats(prev => prev ?? { totalOrders: 0, revenue: 0, pending: 0, delivered: 0, inTransit: 0, totalProducts: 0 });
+                setStats(prev => prev ?? { totalOrders: 0, revenue: 0, pending: 0, delivered: 0, inTransit: 0, localDispatch: 0, totalProducts: 0 });
             }
             setLoadingOrders(false);
 
             if (Array.isArray(products)) {
                 setStats(prev => prev
                     ? { ...prev, totalProducts: products.length }
-                    : { totalOrders: 0, revenue: 0, pending: 0, delivered: 0, inTransit: 0, totalProducts: products.length }
+                    : { totalOrders: 0, revenue: 0, pending: 0, delivered: 0, inTransit: 0, localDispatch: 0, totalProducts: products.length }
                 );
             }
             setLoadingProducts(false);
@@ -258,7 +260,7 @@ const AdminDashboard = () => {
                     {[
                         { label: "Delivered", value: stats.delivered, icon: FiCheckCircle, accent: T.green },
                         { label: "In Transit", value: stats.inTransit, icon: FiTruck, accent: T.sky },
-                        { label: "Customers", value: customerLocations.length, icon: FiUsers, accent: T.violet },
+                        { label: "Local Dispatch", value: stats.localDispatch, icon: FiTruck, accent: T.orange },
                     ].map(({ label, value, icon: Icon, accent }) => (
                         <div key={label} style={{ background: T.white, border: `1px solid ${T.border}`, borderRadius: 12, padding: "12px 16px", display: "flex", alignItems: "center", justifyContent: "space-between", boxShadow: "0 1px 4px rgba(0,0,0,0.03)" }}>
                             <div>
@@ -276,7 +278,7 @@ const AdminDashboard = () => {
                 {[
                     { to: "/admin/orders", icon: FiShoppingBag, label: "Orders", desc: "Update status", accent: T.blue },
                     { to: "/admin/products/new", icon: FiPlusCircle, label: "Add Product", desc: "Upload & price", accent: T.green },
-                    { to: "/admin/users", icon: FiUsers, label: "Customers", desc: "View all users", accent: T.violet },
+                    { to: "/admin/local-delivery", icon: FiTruck, label: "Local Delivery", desc: "Assign riders", accent: T.orange },
                     { to: "/admin/banners", icon: FiTag, label: "Banners", desc: "Homepage banners", accent: "#ec4899" },
                 ].map(({ to, icon: Icon, label, desc, accent }) => (
                     <Link key={to} to={to} className="ux-qa-card" style={{

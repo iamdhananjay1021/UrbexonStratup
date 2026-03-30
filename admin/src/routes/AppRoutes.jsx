@@ -20,6 +20,7 @@ import AdminVendors from "../pages/AdminVendors";
 import AdminVendorDetail from "../pages/AdminVendorDetail";
 import AdminPincodes from "../pages/AdminPincodes";
 import AdminSettlements from "../pages/AdminSettlements";
+import AdminLocalDelivery from "../pages/AdminLocalDelivery";
 
 // ── Refund & Returns ───────────────────────────────────────
 import AdminRefundReturn from "../pages/AdminRefundReturn";
@@ -64,6 +65,9 @@ const AppRoutes = () => {
 
                     {/* Settlements */}
                     <Route path="settlements" element={<AdminSettlements />} />
+
+                    {/* Local Delivery */}
+                    <Route path="local-delivery" element={<AdminLocalDelivery />} />
 
                     {/* Refunds & Returns */}
                     <Route path="refunds" element={<AdminRefundReturn />} />
