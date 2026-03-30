@@ -110,16 +110,14 @@ const AppRoutes = () => {
 
 
                     {/* ── Vendor portal ── */}
-                    <Route element={<ProtectedRoute allowedRoles={["user"]} />}>
-                        <Route element={<VendorRoute />}>
-                            <Route path="/vendor" element={<VendorLayout />}>
-                                <Route index element={<VendorStatus />} />
-                                <Route path="status" element={<VendorStatus />} />
-                                <Route path="apply" element={<VendorApply />} />
-                                <Route path="dashboard" element={<VendorDashboard />} />
-                                <Route path="earnings" element={<VendorEarnings />} />
-                                <Route path="profile" element={<VendorProfile />} />
-                            </Route>
+                    <Route element={<ProtectedRoute />}>
+                        <Route path="/vendor" element={<VendorLayout />}>
+                            <Route index element={<VendorStatus />} />
+                            <Route path="status" element={<VendorStatus />} />
+                            <Route path="apply" element={<VendorApply />} />
+                            <Route path="dashboard" element={<VendorDashboard />} />
+                            <Route path="earnings" element={<VendorEarnings />} />
+                            <Route path="profile" element={<VendorProfile />} />
                         </Route>
                     </Route>
                     {/* 404 */}

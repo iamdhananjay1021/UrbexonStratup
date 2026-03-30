@@ -79,7 +79,6 @@ export const initiateOnlinePayment = async ({
                             longitude: address.lng,
                             deliveryType,
                             distanceKm,
-                            pincode: address?.pincode,
                             // ✅ No prices sent — server uses DB prices
                         },
                     });
