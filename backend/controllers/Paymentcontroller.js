@@ -35,7 +35,7 @@ export const createRazorpayOrder = async (req, res) => {
         // ✅ Calculate from DB — ignore frontend amount
         let pricing;
         try {
-            pricing = await calculateOrderPricing(items, "RAZORPAY");
+            pricing = await calculateOrderPricing(items, "RAZORPAY", { deliveryType, distanceKm, pincode });
         } catch (err) {
             return res.status(400).json({ message: err.message });
         }
@@ -93,7 +93,7 @@ export const verifyPaymentAndCreateOrder = async (req, res) => {
             return res.status(400).json({ message: "Payment verification failed", success: false });
 
         // ✅ Step 2: Validate customer data
-        const { items, customerName, phone, email, address, latitude, longitude } = orderData;
+        const { items, customerName, phone, email, address, latitude, longitude, deliveryType, distanceKm, pincode } = orderData;
 
         if (!items?.length || items.length > 20)
             return res.status(400).json({ message: "Invalid cart", success: false });
@@ -105,12 +105,12 @@ export const verifyPaymentAndCreateOrder = async (req, res) => {
         // ✅ Step 3: Recalculate pricing from DB (ignore frontend prices completely)
         let pricing;
         try {
-            pricing = await calculateOrderPricing(items, "RAZORPAY");
+            pricing = await calculateOrderPricing(items, "RAZORPAY", { deliveryType, distanceKm, pincode });
         } catch (err) {
             return res.status(400).json({ message: err.message, success: false });
         }
 
-        const { formattedItems, itemsTotal, deliveryCharge, platformFee, finalTotal } = pricing;
+        const { formattedItems, itemsTotal, deliveryCharge, platformFee, finalTotal, deliveryType: finalDeliveryType, deliveryProvider, deliveryETA, distanceKm: finalDistanceKm } = pricing;
 
         // ✅ Step 4: Verify Razorpay order amount matches our calculated amount
         // Fetch the Razorpay order to compare
@@ -148,6 +148,12 @@ export const verifyPaymentAndCreateOrder = async (req, res) => {
             totalAmount: finalTotal,          // ✅ Server calculated
             platformFee,
             deliveryCharge,
+            delivery: {
+                type: finalDeliveryType,
+                distanceKm: finalDistanceKm,
+                provider: deliveryProvider,
+                eta: deliveryETA,
+            },
             latitude,
             longitude,
             orderStatus: "PLACED",
@@ -179,6 +185,9 @@ export const verifyPaymentAndCreateOrder = async (req, res) => {
             invoiceNumber,
             paymentId: razorpay_payment_id,
             finalTotal,
+            deliveryType: finalDeliveryType,
+            deliveryETA,
+            deliveryProvider,
         });
 
         // Emails async

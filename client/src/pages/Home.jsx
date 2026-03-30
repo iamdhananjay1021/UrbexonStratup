@@ -438,6 +438,45 @@ const SearchResults = ({ query }) => {
 /* ════════════════════════════════════════
    MAIN HOMEPAGE
 ════════════════════════════════════════ */
+
+
+const UrbexonHourSection = () => {
+    const navigate = useNavigate();
+
+    const cards = [
+        { title: "Urbexon Hour", desc: "Local express delivery in 45–120 mins (up to 15 km).", chip: "0–15 KM", bg: "#ecfeff", border: "#a5f3fc" },
+        { title: "Vendor Self Delivery", desc: "Within 2 km, vendor can self-deliver for faster handoff.", chip: "0–2 KM", bg: "#f0fdf4", border: "#bbf7d0" },
+        { title: "E-commerce Standard", desc: "Shiprocket managed delivery in 3–5 business days.", chip: "3–5 DAYS", bg: "#eff6ff", border: "#bfdbfe" },
+    ];
+
+    return (
+        <section style={{ padding: "52px clamp(16px,5vw,80px)", background: "#fff", borderTop: "1px solid #e8e4d9", borderBottom: "1px solid #e8e4d9" }}>
+            <div style={{ maxWidth: 1440, margin: "0 auto" }}>
+                <SectionHeader tag="Delivery" title="Urbexon" highlight="Hour" desc="Choose fast local delivery or standard national shipping." />
+
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(230px,1fr))", gap: 14 }}>
+                    {cards.map((c) => (
+                        <div key={c.title} style={{ border: `1px solid ${c.border}`, background: c.bg, padding: 16 }}>
+                            <div style={{ display: "inline-flex", padding: "4px 9px", background: "#1a1740", color: "#fff", fontSize: 10, fontWeight: 700, letterSpacing: ".08em", marginBottom: 8 }}>{c.chip}</div>
+                            <h3 style={{ margin: "0 0 6px", fontSize: 18, color: "#1a1740" }}>{c.title}</h3>
+                            <p style={{ margin: 0, fontSize: 13, color: "#475569", lineHeight: 1.5 }}>{c.desc}</p>
+                        </div>
+                    ))}
+                </div>
+
+                <div style={{ marginTop: 14, display: "flex", gap: 10, flexWrap: "wrap" }}>
+                    <button onClick={() => navigate("/checkout")} style={{ padding: "11px 16px", border: "none", background: "#1a1740", color: "#fff", fontWeight: 700, cursor: "pointer" }}>
+                        Try Quick Checkout
+                    </button>
+                    <button onClick={() => navigate("/contact")} style={{ padding: "11px 16px", border: "1px solid #1a1740", background: "#fff", color: "#1a1740", fontWeight: 700, cursor: "pointer" }}>
+                        Connect Local Riders
+                    </button>
+                </div>
+            </div>
+        </section>
+    );
+};
+
 const Home = () => {
     const navigate = useNavigate();
     const [searchParams] = useSearchParams();
@@ -771,6 +810,9 @@ const Home = () => {
 
                 {/* ✅ SUGGESTED FOR YOU — backend se fetch */}
                 <SuggestedForYou />
+
+                {/* URBEXON HOUR DELIVERY SECTION */}
+                <UrbexonHourSection />
 
                 {/* DEALS */}
                 {deals.length > 0 && (

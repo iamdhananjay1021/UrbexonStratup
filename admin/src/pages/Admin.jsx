@@ -4,11 +4,11 @@ import { useAdminAuth } from "../auth/AdminAuthContext";
 import {
     FaThLarge, FaBox, FaClipboardList,
     FaSignOutAlt, FaBars, FaTimes, FaChevronRight, FaPlusCircle,
-    FaImage, FaTags, FaUsers, FaStore, FaMapMarkerAlt, FaMoneyBillWave, FaUndoAlt,
+    FaImage, FaTags, FaStore, FaMapMarkerAlt, FaMoneyBillWave, FaUndoAlt, FaTruck,
 } from "react-icons/fa";
 
 /* ─── Pages that need zero padding (manage their own layout) ─── */
-const FULLBLEED_ROUTES = ["refunds", "settlements", "pincodes"];
+const FULLBLEED_ROUTES = ["refunds", "settlements", "pincodes", "local-delivery"];
 
 const ADMIN_STYLES = `
     :root {
@@ -199,9 +199,8 @@ const NAV_SECTIONS = [
         ],
     },
     {
-        label: "Users",
+        label: "Partners",
         items: [
-            { to: "users", icon: FaUsers, label: "Customers" },
             { to: "vendors", icon: FaStore, label: "Vendors" },
         ],
     },
@@ -210,6 +209,7 @@ const NAV_SECTIONS = [
         items: [
             { to: "pincodes", icon: FaMapMarkerAlt, label: "Pincodes" },
             { to: "settlements", icon: FaMoneyBillWave, label: "Settlements" },
+            { to: "local-delivery", icon: FaTruck, label: "Local Delivery" },
             { to: "refunds", icon: FaUndoAlt, label: "Refunds & Returns" },
         ],
     },
