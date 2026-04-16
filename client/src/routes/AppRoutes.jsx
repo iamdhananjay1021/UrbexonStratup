@@ -28,6 +28,7 @@ const RefundPolicy = lazy(() => import("../pages/RefundPolicy"));
 const ContactUs = lazy(() => import("../pages/Contactus"));
 const CategoryPage = lazy(() => import("../pages/Categorypage"));
 const DealsPage = lazy(() => import("../pages/Dealspage"));
+const ProductsPage = lazy(() => import("../pages/Productspage"));
 const NotFound = lazy(() => import("../pages/Notfound"));
 const UrbexonHour = lazy(() => import("../pages/UrbexonHour"));
 const UHCart = lazy(() => import("../pages/UHCart"));
@@ -83,6 +84,7 @@ const AppRoutes = () => (
         {/* Main Layout routes */}
         <Route element={<MainLayout />}>
           <Route path="/" element={<PageTransition><Home /></PageTransition>} />
+          <Route path="/products" element={<PageTransition><ProductsPage /></PageTransition>} />
           <Route path="/category/:slug" element={<PageTransition><CategoryPage /></PageTransition>} />
           <Route path="/deals" element={<PageTransition><DealsPage /></PageTransition>} />
           <Route path="/products/:id" element={<PageTransition><ProductDetails /></PageTransition>} />

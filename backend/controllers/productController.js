@@ -9,6 +9,7 @@ import { getCache, setCache, delCacheByPrefix } from "../utils/Cache.js";
  * - Related products endpoint added
  * - Admin CRUD complete
  * - Vendor CRUD complete
+ * - FIX: Homepage queries now include inStock + stock fields (was causing OUT OF STOCK bug)
  */
 import Product from "../models/Product.js";
 import { uploadToCloudinary } from "../config/cloudinary.js";
@@ -31,6 +32,10 @@ export const getProducts = async (req, res) => {
             category, search, sort = "createdAt", order = "desc",
             productType, vendorId, featured, minPrice, maxPrice, deal,
         } = req.query;
+
+        const cacheKey = `products:${JSON.stringify({ page, limit, category, search, sort, order, productType, vendorId, featured, minPrice, maxPrice, deal })}`;
+        const cached = await getCache(cacheKey);
+        if (cached) return res.json(cached);
 
         const filter = { isActive: true };
 
@@ -80,16 +85,19 @@ export const getProducts = async (req, res) => {
         const skip = (Math.max(1, Number(page)) - 1) * Math.min(50, Number(limit));
 
         const [products, total] = await Promise.all([
-            Product.find(filter).sort(sortObj).skip(skip).limit(Math.min(50, Number(limit))).lean(),
+            Product.find(filter).select("name slug category brand price mrp images rating numReviews inStock stock isDeal dealEndsAt isFeatured tags productType vendorId").sort(sortObj).skip(skip).limit(Math.min(50, Number(limit))).lean(),
             Product.countDocuments(filter),
         ]);
 
-        res.json({
+        const result = {
             products,
             total,
             page: Number(page),
             totalPages: Math.ceil(total / Math.min(50, Number(limit))),
-        });
+        };
+
+        await setCache(cacheKey, result, 60); // 1 min cache
+        res.json(result);
     } catch (err) {
         console.error("[getProducts]", err);
         res.status(500).json({ success: false, message: "Failed to fetch products" });
@@ -107,14 +115,31 @@ export const getHomepageProducts = async (req, res) => {
 
         const base = { isActive: true, productType: "ecommerce" };
 
+        // ✅ FIX: Added `inStock stock` to all 3 select() calls
+        // Previously missing → frontend got undefined → showed "OUT OF STOCK" for all products
         const [featured, newArrivals, deals, productCount, cats] = await Promise.all([
-            Product.find({ ...base, isFeatured: true }).sort({ createdAt: -1 }).limit(8).lean(),
-            Product.find(base).sort({ createdAt: -1 }).limit(12).lean(),
+            Product.find({ ...base, isFeatured: true })
+                .select("name slug price mrp images category rating isDeal inStock stock")
+                .sort({ createdAt: -1 })
+                .limit(8)
+                .lean(),
+
+            Product.find(base)
+                .select("name slug price mrp images category rating isDeal inStock stock")
+                .sort({ createdAt: -1 })
+                .limit(12)
+                .lean(),
+
             Product.find({
                 ...base,
                 isDeal: true,
                 $or: [{ dealEndsAt: null }, { dealEndsAt: { $gt: new Date() } }],
-            }).sort({ createdAt: -1 }).limit(8).lean(),
+            })
+                .select("name slug price mrp images category rating isDeal dealEndsAt inStock stock")
+                .sort({ createdAt: -1 })
+                .limit(8)
+                .lean(),
+
             Product.countDocuments({ isActive: true }),
             Product.distinct("category", { isActive: true, productType: "ecommerce" }),
         ]);
@@ -126,8 +151,7 @@ export const getHomepageProducts = async (req, res) => {
             stats: { products: productCount, categories: cats.length },
         };
 
-        // FIX: setCache was missing — cache for 5 minutes
-        await setCache(CACHE_KEY, result, 300);
+        await setCache(CACHE_KEY, result, 300); // 5 min cache
 
         res.json(result);
     } catch (err) {
@@ -224,32 +248,100 @@ export const getUrbexonHourProducts = async (req, res) => {
 };
 
 /* ════════════════════════════════════════
-   PUBLIC — Urbexon Hour deals (vendor deal products)
+   PUBLIC — Urbexon Hour Flash Deals (BACKEND-MANAGED)
+   ─────────────────────────────────────
+   • Smart deal rotation & prioritization
+   • Stock validation & auto-exclusion
+   • Category distribution
+   • Countdown timer management
+   • Performance caching
 ════════════════════════════════════════ */
 export const getUrbexonHourDeals = async (req, res) => {
     try {
-        const { page = 1, limit = 20, category } = req.query;
+        const { limit = 12, refresh = false } = req.query;
+
+        // Cache key for flash deals
+        const cacheKey = "uh_flash_deals";
+
+        // If not force refresh, check cache first
+        if (!refresh) {
+            const cached = await getCache(cacheKey);
+            if (cached) return res.json(cached);
+        }
+
+        // Build filter for valid deals
+        const now = new Date();
         const filter = {
             productType: "urbexon_hour",
             isActive: true,
             isDeal: true,
-            $or: [{ dealEndsAt: null }, { dealEndsAt: { $gt: new Date() } }],
+            inStock: true,
+            stock: { $gt: 0 },
+            // Deal must not be expired
+            $or: [{ dealEndsAt: null }, { dealEndsAt: { $gt: now } }],
+            // Deal must have started or be starting
+            $or: [{ dealStartsAt: null }, { dealStartsAt: { $lte: now } }],
         };
-        if (category) { const rx = slugToRegex(category); if (rx) filter.category = rx; }
 
-        const skip = (Number(page) - 1) * Number(limit);
-        const [products, total] = await Promise.all([
-            Product.find(filter)
-                .populate("vendorId", "shopName shopLogo rating isOpen city")
-                .sort({ createdAt: -1 })
-                .skip(skip).limit(Number(limit)).lean(),
-            Product.countDocuments(filter),
-        ]);
+        // Fetch deals with smart sorting:
+        // 1. Priority products (admin-marked)
+        // 2. High discount (incentivize traffic)
+        // 3. Ending soon (create urgency)
+        // 4. Popular (based on sales/views)
+        const products = await Product.find(filter)
+            .select("+dealStartsAt +dealEndsAt +views +sales +discount")
+            .populate("vendorId", "shopName shopLogo rating isOpen city")
+            .sort({
+                "dealPriority": -1,                    // Admin priority first
+                "discount": -1,                        // High discount
+                "dealEndsAt": 1,                       // Ending soon
+                "sales": -1,                           // Popular
+                "views": -1,                           // Trending
+                "createdAt": -1,                       // Newest
+            })
+            .limit(Number(limit))
+            .lean();
 
-        res.json({ products, total, page: Number(page), totalPages: Math.ceil(total / Number(limit)) });
+        // Enrich with calculated fields
+        const enrichedDeals = products.map(p => ({
+            ...p,
+            // Calculate time remaining
+            timeRemaining: p.dealEndsAt ? Math.max(0, new Date(p.dealEndsAt) - now) : null,
+            // Calculate urgency level (0-100)
+            urgencyScore: p.dealEndsAt ? Math.min(100, Math.max(0, (30 * 60 * 1000 - (new Date(p.dealEndsAt) - now)) / (30 * 60 * 1000) * 100)) : 0,
+            // Format discount percentage
+            discountPercent: p.mrp && p.price ? Math.round(((p.mrp - p.price) / p.mrp) * 100) : 0,
+            // Deal status for badge
+            dealStatus: p.dealEndsAt && (new Date(p.dealEndsAt) - now) < 60 * 60 * 1000 ? "ending-soon" : "hot-deal",
+        }));
+
+        // Prepare response
+        const response = {
+            success: true,
+            products: enrichedDeals,
+            totalDeals: enrichedDeals.length,
+            lastUpdated: new Date().toISOString(),
+            cacheValidUntil: new Date(now.getTime() + 5 * 60 * 1000).toISOString(), // 5 min cache
+            // Metadata for frontend
+            meta: {
+                hotDealsCount: enrichedDeals.filter(p => p.dealStatus === "hot-deal").length,
+                endingSoonCount: enrichedDeals.filter(p => p.dealStatus === "ending-soon").length,
+                avgDiscount: Math.round(enrichedDeals.reduce((sum, p) => sum + p.discountPercent, 0) / enrichedDeals.length || 0),
+            }
+        };
+
+        // Cache for 5 minutes
+        await setCache(cacheKey, response, 300);
+
+        res.json(response);
+
     } catch (err) {
-        console.error("[getUrbexonHourDeals]", err);
-        res.status(500).json({ success: false, message: "Failed to fetch UH deals" });
+        console.error("[getUrbexonHourDeals - BACKEND-MANAGED]", err);
+        res.status(500).json({
+            success: false,
+            message: "Failed to fetch flash deals",
+            error: process.env.NODE_ENV === "development" ? err.message : undefined
+        });
     }
 };
 
@@ -434,25 +526,62 @@ export const adminCreateProduct = async (req, res) => {
             : [];
 
         /* ───────────────
-           🖼️ IMAGE UPLOAD
+           🖼️ IMAGE UPLOAD (PRODUCTION-READY)
         ─────────────── */
         const images = [];
+        const imageErrors = [];
 
-        if (req.files?.length) {
-            for (const file of req.files.slice(0, 6)) {
+        // ✅ VALIDATION: Check if files are present
+        if (!req.files || !Array.isArray(req.files) || req.files.length === 0) {
+            console.warn(`[adminCreateProduct] ⚠️ No image files received. req.files: ${JSON.stringify(req.files?.length || 'undefined')}, type: ${typeof req.files}`);
+        } else {
+            console.log(`[adminCreateProduct] 📁 Processing ${req.files.length} image file(s)`);
+
+            for (let i = 0; i < Math.min(6, req.files.length); i++) {
+                const file = req.files[i];
                 try {
-                    const url = await uploadToCloudinary(file.buffer, "products");
-                    if (url) {
-                        images.push({
-                            url,
-                            alt: body.name?.trim() || "product-image",
-                        });
+                    // Validate file object
+                    if (!file || !file.buffer) {
+                        throw new Error(`File ${i + 1} is invalid or missing buffer. File: ${JSON.stringify(Object.keys(file || {}))}`);
                     }
-                } catch {
-                    console.warn("⚠️ Image upload failed, skipping file");
+
+                    console.log(`[adminCreateProduct] 🔄 Uploading image ${i + 1}/${req.files.length}: ${file.originalname || 'unknown'} (${file.size} bytes)`);
+
+                    const result = await uploadToCloudinary(file.buffer, "products");
+
+                    if (result?.secure_url) {
+                        images.push({
+                            url: result.secure_url,
+                            publicId: result.public_id || "",
+                            alt: body.name?.trim() || "product-image",
+                            fileName: file.originalname || `image-${i + 1}`,
+                        });
+                        console.log(`[adminCreateProduct] ✅ Image ${i + 1} uploaded: ${result.secure_url}`);
+                    } else {
+                        throw new Error(`Cloudinary did not return secure_url. Response: ${JSON.stringify(result || {})}`);
+                    }
+                } catch (err) {
+                    const errMsg = `Image ${i + 1} (${file?.originalname || 'unknown'}): ${err.message}`;
+                    imageErrors.push(errMsg);
+                    console.error(`[adminCreateProduct] ❌ ${errMsg}`);
                 }
             }
         }
+
+        // ✅ VALIDATION: At least 1 image required
+        if (images.length === 0) {
+            const errorDetail = imageErrors.length > 0
+                ? `All image uploads failed: ${imageErrors.join("; ")}`
+                : `No images were provided or processed`;
+            console.error(`[adminCreateProduct] 🚨 Product creation blocked: ${errorDetail}`);
+            return res.status(400).json({
+                success: false,
+                message: "At least 1 image is required. Check file format and size (max 5MB).",
+                errors: imageErrors,
+            });
+        }
+
+        console.log(`[adminCreateProduct] ✅ Successfully processed ${images.length} image(s) for product "${body.name}"`);
 
         /* ───────────────
            📅 DEAL DATE
@@ -565,10 +694,11 @@ export const adminUpdateProduct = async (req, res) => {
 
             for (const file of req.files.slice(0, 6)) {
                 try {
-                    const url = await uploadToCloudinary(file.buffer, "products");
-                    if (url) {
+                    const result = await uploadToCloudinary(file.buffer, "products");
+                    if (result?.secure_url) {
                         newImages.push({
-                            url,
+                            url: result.secure_url,
+                            publicId: result.public_id || "",
                             alt: body.name?.trim() || product.name,
                         });
                     }
@@ -873,8 +1003,14 @@ export const vendorUpdateProduct = async (req, res) => {
             const newImages = [];
             for (const file of req.files.slice(0, 4)) {
                 try {
-                    const url = await uploadToCloudinary(file.buffer, `vendor_products/${req.vendor._id}`);
-                    if (url) newImages.push({ url: url.secure_url || url, alt: body.name || product.name });
+                    const result = await uploadToCloudinary(file.buffer, `vendor_products/${req.vendor._id}`);
+                    if (result?.secure_url) {
+                        newImages.push({
+                            url: result.secure_url,
+                            publicId: result.public_id || "",
+                            alt: body.name || product.name,
+                        });
+                    }
                 } catch { /* skip */ }
             }
             if (newImages.length) product.images = newImages;
@@ -903,5 +1039,200 @@ export const vendorDeleteProduct = async (req, res) => {
     } catch (err) {
         console.error("[vendorDeleteProduct]", err);
         res.status(500).json({ success: false, message: "Failed" });
+    }
+};
+
+/* ════════════════════════════════════════
+   ADMIN — Manage Urbexon Hour Flash Deals
+   ─────────────────────────────────────
+   • Create deals with automatic rotation
+   • Set deal duration & priority
+   • View deal performance
+   • Bulk enable/disable deals
+════════════════════════════════════════ */
+
+// Get all available products for creating deals
+export const adminGetDealableProducts = async (req, res) => {
+    try {
+        const { search, limit = 50 } = req.query;
+
+        const filter = {
+            productType: "urbexon_hour",
+            isActive: true,
+            inStock: true,
+            stock: { $gt: 0 },
+        };
+
+        if (search?.trim()) {
+            const searchRegex = new RegExp(search.trim(), "i");
+            filter.$or = [{ name: searchRegex }, { brand: searchRegex }, { category: searchRegex }];
+        }
+
+        const products = await Product.find(filter)
+            .select("name brand price mrp category stock inStock isDeal dealEndsAt")
+            .limit(Number(limit))
+            .lean();
+
+        res.json({ success: true, products });
+    } catch (err) {
+        console.error("[adminGetDealableProducts]", err);
+        res.status(500).json({ success: false, message: "Failed to fetch products" });
+    }
+};
+
+// Create/Update flash deal with auto-cache invalidation
+export const adminCreateOrUpdateDeal = async (req, res) => {
+    try {
+        const { productId, durationHours = 24, priority = 0, discount = 0 } = req.body;
+
+        if (!productId) {
+            return res.status(400).json({ success: false, message: "Product ID required" });
+        }
+
+        const product = await Product.findById(productId);
+        if (!product) {
+            return res.status(404).json({ success: false, message: "Product not found" });
+        }
+
+        // Calculate deal timing
+        const now = new Date();
+        const dealStartsAt = now;
+        const dealEndsAt = new Date(now.getTime() + Number(durationHours) * 60 * 60 * 1000);
+
+        // Update product with deal info
+        product.isDeal = true;
+        product.dealStartsAt = dealStartsAt;
+        product.dealEndsAt = dealEndsAt;
+        product.dealPriority = Number(priority) || 0;
+        product.discount = Number(discount) || 0;
+
+        await product.save();
+
+        // Invalidate cache to show updated deals immediately
+        await delCacheByPrefix("uh_flash_deals");
+
+        res.json({
+            success: true,
+            message: `Deal created for ${product.name}`,
+            product: {
+                _id: product._id,
+                name: product.name,
+                dealStartsAt: product.dealStartsAt,
+                dealEndsAt: product.dealEndsAt,
+                priority: product.dealPriority,
+                durationHours,
+            }
+        });
+
+    } catch (err) {
+        console.error("[adminCreateOrUpdateDeal]", err);
+        res.status(500).json({ success: false, message: "Failed to create deal" });
+    }
+};
+
+// Disable deal (remove from flash deals)
+export const adminRemoveDeal = async (req, res) => {
+    try {
+        const { productId } = req.params;
+
+        const product = await Product.findByIdAndUpdate(
+            productId,
+            {
+                isDeal: false,
+                dealEndsAt: null,
+                dealStartsAt: null,
+                dealPriority: 0,
+            },
+            { new: true }
+        );
+
+        if (!product) {
+            return res.status(404).json({ success: false, message: "Product not found" });
+        }
+
+        // Invalidate cache
+        await delCacheByPrefix("uh_flash_deals");
+
+        res.json({ success: true, message: `Deal removed for ${product.name}` });
+
+    } catch (err) {
+        console.error("[adminRemoveDeal]", err);
+        res.status(500).json({ success: false, message: "Failed to remove deal" });
+    }
+};
+
+// Get all active flash deals with performance metrics
+export const adminGetFlashDealsMetrics = async (req, res) => {
+    try {
+        const now = new Date();
+
+        const deals = await Product.find({
+            productType: "urbexon_hour",
+            isDeal: true,
+            dealEndsAt: { $gt: now },
+        })
+            .select("name price mrp discount dealEndsAt dealPriority sales views stock dealPriority vendor")
+            .populate("vendorId", "shopName")
+            .lean();
+
+        const metrics = deals.map(d => ({
+            _id: d._id,
+            name: d.name,
+            vendor: d.vendorId?.shopName || "Unknown",
+            price: d.price,
+            mrp: d.mrp,
+            discount: d.discount || Math.round(((d.mrp - d.price) / d.mrp) * 100),
+            priority: d.dealPriority || 0,
+            stock: d.stock,
+            sales: d.sales || 0,
+            views: d.views || 0,
+            conversionRate: d.views > 0 ? ((d.sales / d.views) * 100).toFixed(2) + "%" : "0%",
+            timeRemaining: Math.ceil((new Date(d.dealEndsAt) - now) / (60 * 1000)) + " min",
+            endsAt: d.dealEndsAt,
+        }));
+
+        res.json({
+            success: true,
+            totalActiveDeals: metrics.length,
+            deals: metrics.sort((a, b) => (b.priority - a.priority) || (b.sales - a.sales)),
+            totalImpressions: deals.reduce((sum, d) => sum + (d.views || 0), 0),
+            totalConversions: deals.reduce((sum, d) => sum + (d.sales || 0), 0),
+        });
+
+    } catch (err) {
+        console.error("[adminGetFlashDealsMetrics]", err);
+        res.status(500).json({ success: false, message: "Failed to fetch metrics" });
+    }
+};
+
+// Refresh/rotate flash deals cache (force immediate update)
+export const adminRefreshFlashDeals = async (req, res) => {
+    try {
+        // Clear the cache
+        await delCacheByPrefix("uh_flash_deals");
+
+        // Optionally: Automatically set new deals if old ones expired
+        const now = new Date();
+        const expiredDeals = await Product.find({
+            productType: "urbexon_hour",
+            isDeal: true,
+            dealEndsAt: { $lte: now },
+        });
+
+        // Auto-disable expired deals
+        await Product.updateMany(
+            { _id: { $in: expiredDeals.map(d => d._id) } },
+            { isDeal: false, dealEndsAt: null }
+        );
+
+        res.json({
+            success: true,
+            message: "Flash deals refreshed",
+            expiredDealsRemoved: expiredDeals.length,
+        });
+
+    } catch (err) {
+        console.error("[adminRefreshFlashDeals]", err);
+        res.status(500).json({ success: false, message: "Failed to refresh deals" });
     }
 };

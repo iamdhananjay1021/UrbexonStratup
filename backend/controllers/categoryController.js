@@ -44,9 +44,7 @@ export const getAllCategories = async (req, res) => {
 /* ── GET SINGLE CATEGORY ── */
 export const getSingleCategory = async (req, res) => {
     try {
-        const cat = await Category.findOne({
-            $or: [{ slug: req.params.id }, { _id: req.params.id }],
-        }).lean();
+        const cat = await Category.findOne({ slug: req.params.slug }).lean();
         if (!cat) return res.status(404).json({ success: false, message: "Category not found" });
         res.json(cat);
     } catch (err) {

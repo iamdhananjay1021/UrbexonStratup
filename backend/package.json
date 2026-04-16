@@ -41,7 +41,8 @@
     "streamifier": "^0.1.1",
     "ws": "^8.16.0",
     "xss-clean": "^0.1.4",
-    "zod": "^4.3.6"
+    "zod": "^4.3.6",
+    "node-cron": "^3.0.3"
   },
   "devDependencies": {
     "@jest/globals": "^29.7.0",

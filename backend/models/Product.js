@@ -70,7 +70,14 @@ const productSchema = new mongoose.Schema({
     isActive: { type: Boolean, default: true, index: true },
     isFeatured: { type: Boolean, default: false, index: true },
     isDeal: { type: Boolean, default: false, index: true },
+    dealStartsAt: { type: Date, default: null },
     dealEndsAt: { type: Date, default: null },
+    dealPriority: { type: Number, default: 0 }, // Higher = shown first
+    discount: { type: Number, default: 0 }, // Manual discount percentage override
+
+    // ── Analytics ─────────────────────────────────────────
+    views: { type: Number, default: 0 },
+    sales: { type: Number, default: 0 },
 
     // ── Ratings ───────────────────────────────────────────
     rating: { type: Number, default: 0, min: 0, max: 5 },

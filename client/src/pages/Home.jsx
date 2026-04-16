@@ -353,24 +353,165 @@ const CSS = `
    FLASH DEALS BANNER
 ══════════════════════════════════════════ */
 .h-flash-banner {
-    background: linear-gradient(135deg, #ff4500, #ff6b35);
-    border-radius: 16px; padding: 20px 28px;
+    background: linear-gradient(135deg, #ff4500 0%, #ff6b35 50%, #ff8555 100%);
+    border-radius: 20px; padding: 28px 32px;
     display: flex; align-items: center; justify-content: space-between;
-    gap: 16px; flex-wrap: wrap; margin-bottom: 4px;
+    gap: 20px; flex-wrap: nowrap;
+    position: relative; overflow: hidden;
+    box-shadow: 0 12px 32px rgba(255, 69, 0, 0.25), 0 8px 16px rgba(255, 69, 0, 0.15);
+    border: 2px solid rgba(255,255,255,0.15);
 }
-.h-flash-left { display: flex; align-items: center; gap: 14px; }
-.h-flash-icon { width: 48px; height: 48px; background: rgba(255,255,255,.2); border-radius: 12px; display: flex; align-items: center; justify-content: center; }
-.h-flash-title { font-size: 20px; font-weight: 800; color: #fff; margin-bottom: 2px; }
-.h-flash-sub   { font-size: 12px; color: rgba(255,255,255,.8); }
-.h-flash-timer { display: flex; gap: 6px; align-items: center; flex-shrink: 0; }
-@media(max-width:480px){ .h-flash-banner { padding: 16px; gap: 12px; } .h-flash-title { font-size: 16px; } .h-flash-tv { font-size: 15px; } .h-flash-time-box { padding: 4px 8px; min-width: 38px; } }
+.h-flash-banner::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: 
+        radial-gradient(circle at 20% 50%, rgba(255,255,255,0.15) 0%, transparent 50%),
+        radial-gradient(circle at 80% 80%, rgba(255,255,255,0.08) 0%, transparent 50%);
+    pointer-events: none;
+    border-radius: 20px;
+}
+.h-flash-left { 
+    display: flex; 
+    align-items: center; 
+    gap: 18px; 
+    position: relative; 
+    z-index: 2;
+}
+.h-flash-icon { 
+    width: 56px; 
+    height: 56px; 
+    background: rgba(255,255,255,0.25);
+    backdrop-filter: blur(10px);
+    border: 2px solid rgba(255,255,255,0.3);
+    border-radius: 14px; 
+    display: flex; 
+    align-items: center; 
+    justify-content: center;
+    flex-shrink: 0;
+    animation: h-flash-pulse 2s ease-in-out infinite;
+}
+@keyframes h-flash-pulse {
+    0%, 100% { transform: scale(1); opacity: 1; }
+    50% { transform: scale(1.08); opacity: 0.9; }
+}
+.h-flash-title { 
+    font-size: 24px; 
+    font-weight: 900; 
+    color: #fff; 
+    margin-bottom: 4px; 
+    letter-spacing: -0.5px;
+    text-shadow: 0 2px 8px rgba(0,0,0,0.15);
+}
+.h-flash-sub { 
+    font-size: 13px; 
+    color: rgba(255,255,255,0.9); 
+    font-weight: 500;
+    letter-spacing: 0.3px;
+}
+.h-flash-timer { 
+    display: flex; 
+    gap: 8px; 
+    align-items: center; 
+    flex-shrink: 0;
+    position: relative;
+    z-index: 2;
+    background: rgba(0,0,0,0.2);
+    backdrop-filter: blur(8px);
+    padding: 12px 18px;
+    border-radius: 14px;
+    border: 1px solid rgba(255,255,255,0.15);
+}
+@media(max-width:768px){ 
+    .h-flash-banner { 
+        padding: 20px 24px; 
+        gap: 16px;
+        flex-wrap: wrap;
+    } 
+    .h-flash-title { 
+        font-size: 20px; 
+    } 
+    .h-flash-tv { 
+        font-size: 16px; 
+    } 
+    .h-flash-time-box { 
+        padding: 6px 10px; 
+        min-width: 40px; 
+    }
+    .h-flash-icon {
+        width: 48px;
+        height: 48px;
+    }
+}
+@media(max-width:480px){ 
+    .h-flash-banner { 
+        padding: 16px 18px; 
+        gap: 12px;
+        flex-direction: column;
+        align-items: stretch;
+    } 
+    .h-flash-left {
+        width: 100%;
+    }
+    .h-flash-title { 
+        font-size: 18px; 
+    } 
+    .h-flash-tv { 
+        font-size: 14px; 
+    } 
+    .h-flash-time-box { 
+        padding: 5px 8px; 
+        min-width: 36px; 
+    }
+    .h-flash-timer {
+        width: 100%;
+        justify-content: center;
+        padding: 10px 14px;
+    }
+}
 .h-flash-time-box {
-    background: rgba(0,0,0,.3); border-radius: 8px;
-    padding: 6px 10px; text-align: center; min-width: 44px;
+    background: rgba(0,0,0,0.3);
+    backdrop-filter: blur(8px);
+    border: 1px solid rgba(255,255,255,0.15);
+    border-radius: 10px;
+    padding: 7px 12px;
+    text-align: center;
+    min-width: 48px;
+    transition: all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
-.h-flash-tv { font-size: 18px; font-weight: 900; color: #fff; line-height: 1; font-variant-numeric: tabular-nums; }
-.h-flash-tl { font-size: 8px; color: rgba(255,255,255,.65); margin-top: 1px; }
-.h-flash-colon { font-size: 20px; font-weight: 800; color: rgba(255,255,255,.6); }
+.h-flash-time-box:hover {
+    background: rgba(0,0,0,0.4);
+    border-color: rgba(255,255,255,0.25);
+    transform: scale(1.05);
+}
+.h-flash-tv { 
+    font-size: 20px; 
+    font-weight: 900; 
+    color: #fff; 
+    line-height: 1; 
+    font-variant-numeric: tabular-nums;
+    text-shadow: 0 2px 6px rgba(0,0,0,0.2);
+}
+.h-flash-tl { 
+    font-size: 9px; 
+    color: rgba(255,255,255,0.7); 
+    margin-top: 2px;
+    font-weight: 600;
+    letter-spacing: 0.3px;
+}
+.h-flash-colon { 
+    font-size: 22px; 
+    font-weight: 900; 
+    color: rgba(255,255,255,0.7);
+    animation: h-flash-blink 1s ease-in-out infinite;
+}
+@keyframes h-flash-blink {
+    0%, 49%, 100% { opacity: 1; }
+    50%, 99% { opacity: 0.4; }
+}
 
 /* ══════════════════════════════════════════
    FEATURED SELLERS
@@ -436,21 +577,80 @@ const CSS = `
 .h-why-sub   { font-size: 12px; color: #6b7280; line-height: 1.5; }
 
 /* ══════════════════════════════════════════
-   URBEXON HOUR CTA STRIP
+   URBEXON HOUR CTA BANNER (Professional)
 ══════════════════════════════════════════ */
-.h-uh-cta-strip {
-    background: linear-gradient(135deg, #ff6b35 0%, #ff4500 100%);
-    padding: 28px 0; cursor: pointer; transition: filter .2s;
+.h-uh-banner {
+    background: linear-gradient(135deg, #ff6b35 0%, #ff4500 50%, #ff5722 100%);
+    padding: clamp(32px, 6vw, 52px) 0;
+    cursor: pointer; transition: all .3s; position: relative;
+    overflow: hidden;
 }
-.h-uh-cta-strip:hover { filter: brightness(1.05); }
-.h-uh-cta-btn {
-    padding: 12px 28px; background: #fff; color: #ff4500;
-    border: none; border-radius: 8px; font-size: 14px; font-weight: 800;
+.h-uh-banner::before {
+    content: ''; position: absolute; inset: 0;
+    background: radial-gradient(circle at 20% 50%, rgba(255,255,255,.1) 0%, transparent 50%),
+                radial-gradient(circle at 80% 80%, rgba(0,0,0,.1) 0%, transparent 50%);
+    pointer-events: none;
+}
+.h-uh-banner:hover { filter: brightness(1.08); }
+
+.h-uh-content {
+    position: relative; z-index: 2;
+    display: flex; align-items: center; justify-content: space-between;
+    flex-wrap: wrap; gap: clamp(16px, 4vw, 32px);
+}
+
+.h-uh-left {
+    display: flex; align-items: center; gap: clamp(14px, 3vw, 20px);
+    flex: 1; min-width: 0;
+}
+
+.h-uh-icon-box {
+    width: clamp(54px, 8vw, 72px); height: clamp(54px, 8vw, 72px);
+    background: rgba(255,255,255,.15); border-radius: 16px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: clamp(28px, 5vw, 42px); flex-shrink: 0;
+    border: 2px solid rgba(255,255,255,.2);
+    box-shadow: inset 0 4px 12px rgba(0,0,0,.1);
+}
+
+.h-uh-text h3 {
+    font-size: clamp(18px, 3vw, 26px); font-weight: 800; color: #fff;
+    margin-bottom: 4px; line-height: 1;
+}
+
+.h-uh-text p {
+    font-size: clamp(11px, 2vw, 14px); color: rgba(255,255,255,.85);
+    line-height: 1.4; margin: 0;
+}
+
+.h-uh-badge {
+    display: inline-flex; align-items: center; gap: 5px;
+    background: rgba(255,255,255,.2); border: 1px solid rgba(255,255,255,.3);
+    padding: 4px 10px; border-radius: 20px; font-size: 10px; font-weight: 700;
+    color: #fff; margin-top: 6px; letter-spacing: .5px;
+}
+
+.h-uh-btn {
+    padding: clamp(10px, 2vw, 14px) clamp(20px, 3vw, 32px);
+    background: #fff; color: #ff4500; border: none;
+    border-radius: 12px; font-size: 14px; font-weight: 800;
     cursor: pointer; display: inline-flex; align-items: center; gap: 8px;
-    font-family: 'Plus Jakarta Sans', sans-serif; transition: transform .2s;
-    white-space: nowrap;
+    font-family: 'Plus Jakarta Sans', sans-serif;
+    transition: all .22s; white-space: nowrap; flex-shrink: 0;
+    box-shadow: 0 6px 20px rgba(0,0,0,.15);
 }
-.h-uh-cta-btn:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(0,0,0,.15); }
+
+.h-uh-btn:hover {
+    transform: translateY(-3px); box-shadow: 0 10px 28px rgba(0,0,0,.2);
+}
+
+.h-uh-btn:active { transform: translateY(-1px); }
+
+@media(max-width:640px) {
+    .h-uh-content { flex-direction: column; gap: 16px; }
+    .h-uh-left { width: 100%; justify-content: space-between; }
+    .h-uh-btn { width: 100%; justify-content: center; }
+}
 
 /* ══════════════════════════════════════════
    NEWSLETTER
@@ -873,6 +1073,25 @@ const Home = () => {
                 )
             )}
 
+            {/* ════ URBEXON HOUR FEATURED BANNER ════════════ */}
+            <div className="h-uh-banner" onClick={() => navigate("/urbexon-hour")}>
+                <div className="h-wrap">
+                    <div className="h-uh-content">
+                        <div className="h-uh-left">
+                            <div className="h-uh-icon-box">⚡</div>
+                            <div className="h-uh-text">
+                                <h3>Urbexon Hour</h3>
+                                <p>Groceries & essentials delivered in <strong>45–120 mins</strong></p>
+                                <div className="h-uh-badge">🚀 FAST EXPRESS</div>
+                            </div>
+                        </div>
+                        <button className="h-uh-btn" onClick={e => { e.stopPropagation(); navigate("/urbexon-hour"); }}>
+                            Start Ordering <FaArrowRight size={13} />
+                        </button>
+                    </div>
+                </div>
+            </div>
+
             {/* ════ CATEGORIES ══════════════════════════════ */}
             {(loading || categories.length > 0) && (
                 <div style={{ background: "#f5f7fa" }}>
@@ -940,7 +1159,7 @@ const Home = () => {
                 <div style={{ background: "#f5f7fa" }}>
                     <div className="h-wrap">
                         <div className="h-sec">
-                            <SecHead title="Trending Products" sub="Most popular right now" to="/category/mens-fashion" />
+                            <SecHead title="Trending Products" sub="Most popular right now" to="/products?sort=rating" label="See all" />
                             {loading ? (
                                 <div className="h-pgrid">{Array(8).fill(0).map((_, i) => <SkCard key={i} />)}</div>
                             ) : (
@@ -956,7 +1175,7 @@ const Home = () => {
                 <div style={{ background: "#fff" }}>
                     <div className="h-wrap">
                         <div className="h-sec">
-                            <SecHead title="New Arrivals" sub="Fresh drops, just for you" to="/deals" label="See all" />
+                            <SecHead title="New Arrivals" sub="Fresh drops, just for you" to="/products?sort=newest" label="See all" />
                             {loading ? (
                                 <div className="h-hscroll">{Array(6).fill(0).map((_, i) => <div key={i} style={{ minWidth: 200 }}><SkCard /></div>)}</div>
                             ) : (
@@ -1061,22 +1280,6 @@ const Home = () => {
                             ))}
                         </div>
                     </div>
-                </div>
-            </div>
-
-            {/* ════ URBEXON HOUR CTA (simple) ═════════════════ */}
-            <div className="h-uh-cta-strip" onClick={() => navigate("/urbexon-hour")}>
-                <div className="h-wrap" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 16 }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                        <span style={{ fontSize: 32 }}>⚡</span>
-                        <div>
-                            <div style={{ fontSize: 18, fontWeight: 800, color: "#fff" }}>Urbexon Hour</div>
-                            <div style={{ fontSize: 13, color: "rgba(255,255,255,.75)" }}>Groceries & essentials delivered in 45–120 mins</div>
-                        </div>
-                    </div>
-                    <button className="h-uh-cta-btn">
-                        Order Now <FaArrowRight size={12} />
-                    </button>
                 </div>
             </div>
 

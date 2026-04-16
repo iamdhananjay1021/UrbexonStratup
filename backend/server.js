@@ -42,7 +42,10 @@ import wishlistRoutes from "./routes/wishlistRoutes.js";
 import couponRoutes from "./routes/couponRoutes.js";
 import notificationRoutes from "./routes/notificationRoutes.js";
 import stockNotificationRoutes from "./routes/stockNotificationRoutes.js";
+import schedulerRoutes from "./routes/schedulerRoutes.js";
 import { notFound, errorHandler } from "./middlewares/errorMiddleware.js";
+import scheduler from "./jobs/scheduler.js";
+import logger from "./utils/logger.js";
 
 dotenv.config();
 
@@ -76,6 +79,11 @@ const buildAllowedOrigins = () => {
         "http://localhost:5174",
         "http://localhost:5175",
         "http://localhost:5176",
+        "https://urbexon.in",
+        "https://www.urbexon.in",
+        "https://admin.urbexon.in",
+        "https://vendor.urbexon.in",
+        "https://delivery.urbexon.in",
     ];
     const fromEnv = [
         process.env.FRONTEND_URL,
@@ -142,6 +150,7 @@ app.use("/api", generalLimiter, notificationRoutes);
 app.use("/api/stock-notify", publicLimiter, stockNotificationRoutes);
 app.use("/api", generalLimiter, vendorRoutes);
 app.use("/api/delivery", generalLimiter, deliveryRoutes);
+app.use("/api/admin", adminLimiter, schedulerRoutes);
 
 // ── 404 + Error Handler ───────────────────────────────────
 app.use(notFound);
@@ -149,10 +158,19 @@ app.use(errorHandler);
 
 // ── Start ─────────────────────────────────────────────────
 const PORT = parseInt(process.env.PORT || "9000", 10);
-const server = httpServer.listen(PORT, "0.0.0.0", () => {
+const server = httpServer.listen(PORT, "0.0.0.0", async () => {
     console.log(`🚀 Urbexon API v2.0 running on port ${PORT} [${process.env.NODE_ENV || "development"}]`);
     initWebSocket(server);
     console.log("🔌 WebSocket ready at /ws");
+
+    // 🤖 Initialize Production Automation Scheduler
+    try {
+        await logger.info("🤖 Initializing Production Scheduler...");
+        await scheduler.initialize();
+        await logger.success("✅ Production Scheduler initialized successfully");
+    } catch (err) {
+        await logger.error("❌ Scheduler initialization failed", err);
+    }
 
     // Daily midnight reset for delivery stats
     const scheduleMidnightReset = () => {
@@ -173,8 +191,9 @@ const server = httpServer.listen(PORT, "0.0.0.0", () => {
     scheduleMidnightReset();
 });
 
-process.on("SIGTERM", () => {
+process.on("SIGTERM", async () => {
     console.log("SIGTERM — shutting down gracefully");
+    scheduler.stop(); // Stop all scheduler jobs
     server.close(() => process.exit(0));
 });
 process.on("uncaughtException", (e) => { console.error("Uncaught:", e); process.exit(1); });

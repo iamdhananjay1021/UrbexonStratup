@@ -19,7 +19,7 @@ import { useCart } from "../hooks/useCart";
 import {
     FaBolt, FaMapMarkerAlt, FaStore, FaShoppingCart,
     FaClock, FaStar, FaChevronRight, FaSearch, FaBell,
-    FaPlus, FaMinus, FaTimes, FaTrash, FaFire,
+    FaPlus, FaMinus, FaTimes, FaTrash, FaFire, FaArrowLeft,
 } from "react-icons/fa";
 
 const fmt = (n) => `₹${Number(n || 0).toLocaleString("en-IN")}`;
@@ -38,7 +38,11 @@ const ProductCard = ({ product }) => {
 
     const handleAdd = useCallback((e) => {
         e.stopPropagation();
-        if (!inCart) addItem({ ...product, productType: "urbexon_hour" });
+        if (!inCart) {
+            addItem({ ...product, productType: "urbexon_hour" });
+            // Trigger haptic feedback if available
+            if (navigator.vibrate) navigator.vibrate(10);
+        }
     }, [inCart, product, addItem]);
 
     return (
@@ -91,11 +95,39 @@ const ProductCard = ({ product }) => {
     );
 };
 
+/* ── Helper Functions (Industry-level cart management) ── */
+const calculateEstimatedDeliveryTime = (pinData) => {
+    if (!pinData?.available) return { min: 45, max: 120 };
+    // If within premium zone, faster delivery
+    if (pinData.premium) return { min: 25, max: 50 };
+    // Normal zones
+    if (pinData.standardDelivery) return { min: 45, max: 90 };
+    return { min: 60, max: 120 };
+};
+
+const calculateEstimatedSavings = (uhItems) => {
+    if (!Array.isArray(uhItems) || uhItems.length === 0) return 0;
+    return uhItems.reduce((total, item) => {
+        const itemSavings = (item.mrp || 0) - (item.price || 0);
+        return total + (itemSavings * (item.quantity || 0));
+    }, 0);
+};
+
+const scrollToCart = () => {
+    const cartBtn = document.querySelector('.float-cart');
+    if (cartBtn) {
+        cartBtn.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        // Add pulse animation
+        cartBtn.classList.add('cart-highlight');
+        setTimeout(() => cartBtn.classList.remove('cart-highlight'), 1500);
+    }
+};
+
 /* ── Main Page ────────────────────────────────────────── */
 const UrbexonHour = () => {
     const navigate = useNavigate();
     const { user } = useAuth();
-    const { uhTotalQty, uhTotal } = useCart();
+    const { uhTotalQty, uhTotal, uhItems } = useCart();
 
     /* ── State ── */
     const [pincode, setPincode] = useState("");
@@ -113,6 +145,16 @@ const UrbexonHour = () => {
     const [showPincodeEdit, setShowPincodeEdit] = useState(false);
     const [searchQuery, setSearchQuery] = useState("");
     const [uhDeals, setUhDeals] = useState([]);
+    const [cartAnimating, setCartAnimating] = useState(false);
+
+    /* ── Trigger cart animation when items added ── */
+    useEffect(() => {
+        if (uhTotalQty > 0) {
+            setCartAnimating(true);
+            const timer = setTimeout(() => setCartAnimating(false), 600);
+            return () => clearTimeout(timer);
+        }
+    }, [uhTotalQty]);
 
     /* ── Load saved pincode on mount ── */
     useEffect(() => {
@@ -170,6 +212,49 @@ const UrbexonHour = () => {
             try { await api.post("/addresses/uh-pincode", pincodeData); } catch { /* silent */ }
         }
     }, [user]);
+
+    /* ── Track cart analytics (industry-level feature) ── */
+    const trackCartInteraction = useCallback((eventType, cartData) => {
+        // Send analytics to backend - valuable for business insights
+        const analyticsPayload = {
+            event: eventType, // 'view_cart', 'add_item', 'remove_item', 'checkout'
+            timestamp: new Date().toISOString(),
+            cartValue: cartData?.total || 0,
+            itemCount: cartData?.qty || 0,
+            itemsList: cartData?.items || [],
+            pincode: cartData?.pincode,
+            userId: cartData?.userId,
+        };
+        // This would typically be sent to your analytics service
+        // api.post('/analytics/cart-interaction', analyticsPayload).catch(() => {});
+    }, []);
+
+    /* ── Get cart summary for quick insights ── */
+    const getCartSummary = useCallback(() => {
+        if (!Array.isArray(uhItems) || uhItems.length === 0) return null;
+
+        const summary = {
+            totalItems: uhTotalQty,
+            totalAmount: uhTotal,
+            totalSavings: calculateEstimatedSavings(uhItems),
+            itemBreakdown: {
+                uniqueItems: uhItems.length,
+                averagePrice: Math.round(uhTotal / uhTotalQty),
+                maxPricedItem: Math.max(...uhItems.map(i => i.price || 0)),
+                minPricedItem: Math.min(...uhItems.map(i => i.price || 0)),
+            },
+            estimatedDelivery: calculateEstimatedDeliveryTime(pinData),
+        };
+        return summary;
+    }, [uhItems, uhTotalQty, uhTotal, pinData]);
+
+    /* ── Navigate to main Urbexon store ── */
+    const handleNavigateToMainStore = useCallback(() => {
+        // Navigate to main Urbexon e-commerce store
+        navigate("/");
+        // Optional: Add analytics event for tracking
+        // trackCartInteraction('navigate_to_main_store', { from: 'urbexon_hour' });
+    }, [navigate]);
 
     /* ── GPS Detection ── */
     const detectLocation = useCallback(async () => {
@@ -330,8 +415,8 @@ const UrbexonHour = () => {
             <style>{PAGE_CSS}</style>
             <main>
 
-                {/* ── SAVED PINCODE BAR (when products already loaded) ── */}
-                {hasActiveService && !showPincodeEdit && (
+                {/* ── SAVED PINCODE BAR - HIDDEN (merged into navbar) ── */}
+                {false && (
                     <div className="uh-pin-bar">
                         <div className="container uh-pin-bar-inner">
                             <div className="uh-pin-bar-left">
@@ -357,24 +442,90 @@ const UrbexonHour = () => {
                     </div>
                 )}
 
-                {/* ── SEARCH BAR (when products loaded) ── */}
+                {/* ── SINGLE PROFESSIONAL NAVBAR (combined header + navbar) ── */}
                 {hasActiveService && !showPincodeEdit && (
-                    <div className="uh-search-bar">
-                        <div className="container">
-                            <div className="uh-search-wrap">
-                                <FaSearch size={13} className="uh-search-ic" />
-                                <input
-                                    className="uh-search-inp"
-                                    type="text"
-                                    placeholder="Search for products, brands…"
-                                    value={searchQuery}
-                                    onChange={(e) => setSearchQuery(e.target.value)}
-                                />
-                                {searchQuery && (
-                                    <button className="uh-search-clear" onClick={() => setSearchQuery("")}>
-                                        <FaTimes size={11} />
-                                    </button>
-                                )}
+                    <div className="uh-navbar">
+                        <div className="container uh-navbar-inner">
+                            {/* Left: Brand Logo + Title */}
+                            <div className="uh-navbar-brand" onClick={() => navigate("/urbexon-hour")} title="Go to Urbexon Hour Home">
+                                <div className="uh-logo-mark">
+                                    <FaBolt size={18} />
+                                </div>
+                                <div className="uh-navbar-title-full">
+                                    <div className="uh-navbar-main-full">Urbexon Hour</div>
+                                    <div className="uh-navbar-sub-full">45–120 min delivery</div>
+                                </div>
+                            </div>
+
+                            {/* Center: Search Bar */}
+                            <div className="uh-navbar-search-wrap">
+                                <div className="uh-navbar-search">
+                                    <FaSearch size={14} className="uh-navbar-search-ic" />
+                                    <input
+                                        className="uh-navbar-search-inp"
+                                        type="text"
+                                        placeholder="Search products, brands..."
+                                        value={searchQuery}
+                                        onChange={(e) => setSearchQuery(e.target.value)}
+                                        onKeyDown={(e) => {
+                                            if (e.key === "Enter") {
+                                                e.preventDefault();
+                                            }
+                                        }}
+                                    />
+                                    {searchQuery && (
+                                        <button
+                                            className="uh-navbar-search-clear"
+                                            onClick={() => setSearchQuery("")}
+                                            title="Clear search"
+                                            type="button"
+                                        >
+                                            <FaTimes size={12} />
+                                        </button>
+                                    )}
+                                    {!searchQuery && (
+                                        <button
+                                            className="uh-navbar-search-btn"
+                                            title="Search products"
+                                            type="button"
+                                        >
+                                            <FaSearch size={12} />
+                                        </button>
+                                    )}
+                                </div>
+                            </div>
+
+                            {/* Right: Location + Store Switch + Account */}
+                            <div className="uh-navbar-right">
+                                <div className="uh-navbar-location-full">
+                                    <FaMapMarkerAlt size={12} />
+                                    <span>
+                                        {savedPincode?.area || savedPincode?.city || pincode}
+                                    </span>
+                                </div>
+                                <button className="uh-navbar-change-btn-full" onClick={handleChangePincode}>
+                                    Change
+                                </button>
+
+                                {/* Store Switch Button - Navigate to Main Store */}
+                                <button
+                                    className="uh-navbar-store-switch-btn"
+                                    onClick={handleNavigateToMainStore}
+                                    title="Browse main Urbexon store"
+                                >
+                                    <FaStore size={14} />
+                                    <span className="store-switch-label">Store</span>
+                                </button>
+
+                                <button
+                                    className="uh-navbar-account"
+                                    onClick={() => navigate(user ? "/profile" : "/login")}
+                                    title={user ? "Go to profile" : "Login"}
+                                >
+                                    <div className="uh-navbar-avatar">
+                                        <span>{user?.name?.charAt(0)?.toUpperCase() || "👤"}</span>
+                                    </div>
+                                </button>
                             </div>
                         </div>
                     </div>
@@ -467,8 +618,8 @@ const UrbexonHour = () => {
                     </div>
                 </div>
 
-                {/* ── CATEGORY CHIPS ── */}
-                {categories.length > 0 && (
+                {/* ── CATEGORY CHIPS (hide when searching) ── */}
+                {categories.length > 0 && !searchQuery && (
                     <div className="section">
                         <div className="container">
                             <div className="section-head">
@@ -495,8 +646,8 @@ const UrbexonHour = () => {
                     </div>
                 )}
 
-                {/* ── UH FLASH DEALS ── */}
-                {uhDeals.length > 0 && (
+                {/* ── UH FLASH DEALS (hide when searching) ── */}
+                {uhDeals.length > 0 && !searchQuery && (
                     <div className="uh-deals-section">
                         <div className="container">
                             <div className="uh-deals-header">
@@ -504,12 +655,32 @@ const UrbexonHour = () => {
                                     <div className="uh-deals-icon"><FaFire size={14} /></div>
                                     <div>
                                         <div className="uh-deals-title">Flash Deals</div>
-                                        <div className="uh-deals-sub">{uhDeals.length} hot offer{uhDeals.length !== 1 ? "s" : ""} — grab before they expire!</div>
+                                        <div className="uh-deals-sub">
+                                            {uhDeals.length} hot offer{uhDeals.length !== 1 ? "s" : ""}
+                                            {uhDeals.length > 0 && uhDeals[0].meta ? ` • Avg ${uhDeals[0].meta.avgDiscount}% off` : ""}
+                                            — grab before they expire!
+                                        </div>
                                     </div>
                                 </div>
                             </div>
                             <div className="uh-deals-scroll">
-                                {uhDeals.map((p) => (
+                                {uhDeals.products?.map?.((p) => (
+                                    <div key={p._id} className="uh-deals-scroll-item">
+                                        <ProductCard product={p} />
+                                        {p.dealStatus && (
+                                            <div className={`uh-deal-badge ${p.dealStatus}`}>
+                                                {p.dealStatus === "ending-soon" ? "🔥 Ending Soon" : "⚡ Hot Deal"}
+                                            </div>
+                                        )}
+                                        {p.dealEndsAt && (() => {
+                                            const diff = new Date(p.dealEndsAt) - new Date();
+                                            if (diff <= 0) return null;
+                                            const h = Math.floor(diff / 3600000);
+                                            const m = Math.floor((diff % 3600000) / 60000);
+                                            return <div className="uh-deal-timer"><FaClock size={9} /> {h}h {m}m left</div>;
+                                        })()}
+                                    </div>
+                                )) || uhDeals.map?.((p) => (
                                     <div key={p._id} className="uh-deals-scroll-item">
                                         <ProductCard product={p} />
                                         {p.dealEndsAt && (() => {
@@ -538,6 +709,25 @@ const UrbexonHour = () => {
                                 <strong>{pinData.vendorCount || vendorGroups.length}</strong>{" "}
                                 vendor{(pinData.vendorCount || vendorGroups.length) !== 1 ? "s" : ""} available
                             </span>
+                        </div>
+                    </div>
+                )}
+
+                {/* ── SEARCH RESULTS COUNTER ── */}
+                {searchQuery && hasActiveService && !showPincodeEdit && (
+                    <div className="search-results-bar">
+                        <div className="container search-results-inner">
+                            <FaSearch size={13} style={{ color: '#3b82f6' }} />
+                            <span>
+                                Found <strong>{filteredProducts.length}</strong> product{filteredProducts.length !== 1 ? "s" : ""} matching "<strong>{searchQuery}</strong>"
+                            </span>
+                            <button
+                                className="search-clear-btn"
+                                onClick={() => setSearchQuery("")}
+                                title="Clear search"
+                            >
+                                <FaTimes size={12} /> Clear
+                            </button>
                         </div>
                     </div>
                 )}
@@ -635,29 +825,125 @@ const UrbexonHour = () => {
                 <div style={{ height: 80 }} />
             </main>
 
-            {/* ── FLOATING UH CART BUTTON ── */}
+            {/* ── FLOATING UH CART BUTTON - Industry Level ── */}
             {uhTotalQty > 0 && (
-                <button className="float-cart" onClick={() => navigate("/uh-cart")}>
-                    <FaShoppingCart size={16} />
-                    <span>{uhTotalQty} item{uhTotalQty !== 1 ? "s" : ""}</span>
-                    <span className="float-cart-sep">·</span>
-                    <span>{fmt(uhTotal)}</span>
-                    <span className="float-cart-sep">·</span>
-                    <span>View Cart</span>
-                    <FaChevronRight size={12} />
+                <button
+                    className={`float-cart ${cartAnimating ? 'cart-pulse' : ''}`}
+                    onClick={() => navigate("/uh-cart")}
+                    title={`${uhTotalQty} item${uhTotalQty !== 1 ? 's' : ''} • ${fmt(uhTotal)}`}
+                >
+                    <div className="float-cart-icon-badge">
+                        <FaShoppingCart size={16} />
+                        <span className="cart-badge">{uhTotalQty}</span>
+                    </div>
+                    <div className="float-cart-content">
+                        <div className="cart-qty-text">{uhTotalQty} item{uhTotalQty !== 1 ? "s" : ""}</div>
+                        <div className="cart-amount-text">{fmt(uhTotal)}</div>
+                    </div>
+                    <div className="float-cart-meta">
+                        {calculateEstimatedSavings(uhItems) > 0 && (
+                            <span className="cart-savings">Save {fmt(calculateEstimatedSavings(uhItems))}</span>
+                        )}
+                        {pinData && (
+                            <span className="cart-delivery">
+                                {calculateEstimatedDeliveryTime(pinData).min}-{calculateEstimatedDeliveryTime(pinData).max} min
+                            </span>
+                        )}
+                    </div>
+                    <FaChevronRight size={12} className="cart-chevron" />
                 </button>
             )}
 
             {/* ── FOOTER ── */}
             <footer className="footer">
-                <div className="container footer-inner">
-                    <div className="footer-brand">
-                        <span className="logo-mark-sm">UX</span>
-                        <span style={{ fontWeight: 800, fontSize: 15, color: "#fff" }}>
-                            URBEXON<em style={{ color: "#c9a84c", fontStyle: "normal" }}>Hour</em>
-                        </span>
+                <div className="container footer-main">
+                    {/* Footer Top - Brand & Newsletter */}
+                    <div className="footer-top">
+                        <div className="footer-brand-sec">
+                            <div className="footer-brand">
+                                <span className="logo-mark-sm">UX</span>
+                                <div>
+                                    <div style={{ fontWeight: 800, fontSize: 16, color: "#fff", letterSpacing: "-0.5px" }}>
+                                        URBEXON<em style={{ color: "#c9a84c", fontStyle: "normal", marginLeft: "2px" }}>Hour</em>
+                                    </div>
+                                    <div style={{ fontSize: 11, color: "#9ca3af", marginTop: "2px", fontWeight: 600 }}>Express Delivery Service</div>
+                                </div>
+                            </div>
+                            <p style={{ fontSize: 13, color: "#d1d5db", marginTop: 12, lineHeight: 1.5 }}>
+                                Fast, fresh & local products delivered to your doorstep in 45–120 minutes.
+                            </p>
+                        </div>
+
+                        <div className="footer-newsletter">
+                            <h4 style={{ fontSize: 12, fontWeight: 900, color: "#fff", marginkBottom: 10, textTransform: "uppercase", letterSpacing: "0.5px" }}>Subscribe for Updates</h4>
+                            <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
+                                <input type="email" placeholder="Your email" style={{ flex: 1, padding: "10px 12px", borderRadius: 8, border: "1px solid rgba(255,255,255,.15)", background: "rgba(255,255,255,.05)", color: "#fff", fontSize: 12, fontFamily: "'DM Sans'" }} />
+                                <button style={{ padding: "10px 16px", background: "#3b82f6", color: "#fff", border: "none", borderRadius: 8, fontSize: 12, fontWeight: 800, cursor: "pointer", transition: "all 0.2s", whiteSpace: "nowrap" }} onMouseEnter={(e) => e.target.style.background = "#2563eb"} onMouseLeave={(e) => e.target.style.background = "#3b82f6"}>Subscribe</button>
+                            </div>
+                        </div>
                     </div>
-                    <div className="footer-sub">Fast, fresh &amp; local — delivered in 45–120 minutes</div>
+
+                    {/* Footer Middle - Links Sections */}
+                    <div className="footer-links-grid">
+                        <div className="footer-section">
+                            <h5 style={{ fontSize: 12, fontWeight: 900, color: "#fff", marginBottom: 12, textTransform: "uppercase", letterSpacing: "0.5px" }}>Company</h5>
+                            <ul style={{ listStyle: "none", padding: 0, margin: 0 }}>
+                                <li><a href="#" style={{ fontSize: 13, color: "#d1d5db", textDecoration: "none", lineHeight: 2, transition: "color 0.2s" }} onMouseEnter={(e) => e.target.style.color = "#3b82f6"} onMouseLeave={(e) => e.target.style.color = "#d1d5db"}>About Us</a></li>
+                                <li><a href="#" style={{ fontSize: 13, color: "#d1d5db", textDecoration: "none", lineHeight: 2, transition: "color 0.2s" }} onMouseEnter={(e) => e.target.style.color = "#3b82f6"} onMouseLeave={(e) => e.target.style.color = "#d1d5db"}>Careers</a></li>
+                                <li><a href="#" style={{ fontSize: 13, color: "#d1d5db", textDecoration: "none", lineHeight: 2, transition: "color 0.2s" }} onMouseEnter={(e) => e.target.style.color = "#3b82f6"} onMouseLeave={(e) => e.target.style.color = "#d1d5db"}>Press</a></li>
+                                <li><a href="#" style={{ fontSize: 13, color: "#d1d5db", textDecoration: "none", lineHeight: 2, transition: "color 0.2s" }} onMouseEnter={(e) => e.target.style.color = "#3b82f6"} onMouseLeave={(e) => e.target.style.color = "#d1d5db"}>Blog</a></li>
+                            </ul>
+                        </div>
+
+                        <div className="footer-section">
+                            <h5 style={{ fontSize: 12, fontWeight: 900, color: "#fff", marginBottom: 12, textTransform: "uppercase", letterSpacing: "0.5px" }}>Help & Support</h5>
+                            <ul style={{ listStyle: "none", padding: 0, margin: 0 }}>
+                                <li><a href="#" style={{ fontSize: 13, color: "#d1d5db", textDecoration: "none", lineHeight: 2, transition: "color 0.2s" }} onMouseEnter={(e) => e.target.style.color = "#3b82f6"} onMouseLeave={(e) => e.target.style.color = "#d1d5db"}>FAQs</a></li>
+                                <li><a href="#" style={{ fontSize: 13, color: "#d1d5db", textDecoration: "none", lineHeight: 2, transition: "color 0.2s" }} onMouseEnter={(e) => e.target.style.color = "#3b82f6"} onMouseLeave={(e) => e.target.style.color = "#d1d5db"}>Contact Us</a></li>
+                                <li><a href="#" style={{ fontSize: 13, color: "#d1d5db", textDecoration: "none", lineHeight: 2, transition: "color 0.2s" }} onMouseEnter={(e) => e.target.style.color = "#3b82f6"} onMouseLeave={(e) => e.target.style.color = "#d1d5db"}>Track Order</a></li>
+                                <li><a href="#" style={{ fontSize: 13, color: "#d1d5db", textDecoration: "none", lineHeight: 2, transition: "color 0.2s" }} onMouseEnter={(e) => e.target.style.color = "#3b82f6"} onMouseLeave={(e) => e.target.style.color = "#d1d5db"}>Support Center</a></li>
+                            </ul>
+                        </div>
+
+                        <div className="footer-section">
+                            <h5 style={{ fontSize: 12, fontWeight: 900, color: "#fff", marginBottom: 12, textTransform: "uppercase", letterSpacing: "0.5px" }}>Legal</h5>
+                            <ul style={{ listStyle: "none", padding: 0, margin: 0 }}>
+                                <li><a href="#" style={{ fontSize: 13, color: "#d1d5db", textDecoration: "none", lineHeight: 2, transition: "color 0.2s" }} onMouseEnter={(e) => e.target.style.color = "#3b82f6"} onMouseLeave={(e) => e.target.style.color = "#d1d5db"}>Privacy Policy</a></li>
+                                <li><a href="#" style={{ fontSize: 13, color: "#d1d5db", textDecoration: "none", lineHeight: 2, transition: "color 0.2s" }} onMouseEnter={(e) => e.target.style.color = "#3b82f6"} onMouseLeave={(e) => e.target.style.color = "#d1d5db"}>Terms & Conditions</a></li>
+                                <li><a href="#" style={{ fontSize: 13, color: "#d1d5db", textDecoration: "none", lineHeight: 2, transition: "color 0.2s" }} onMouseEnter={(e) => e.target.style.color = "#3b82f6"} onMouseLeave={(e) => e.target.style.color = "#d1d5db"}>Refund Policy</a></li>
+                                <li><a href="#" style={{ fontSize: 13, color: "#d1d5db", textDecoration: "none", lineHeight: 2, transition: "color 0.2s" }} onMouseEnter={(e) => e.target.style.color = "#3b82f6"} onMouseLeave={(e) => e.target.style.color = "#d1d5db"}>Shipping Policy</a></li>
+                            </ul>
+                        </div>
+
+                        <div className="footer-section">
+                            <h5 style={{ fontSize: 12, fontWeight: 900, color: "#fff", marginBottom: 12, textTransform: "uppercase", letterSpacing: "0.5px" }}>Follow Us</h5>
+                            <div style={{ display: "flex", gap: 10 }}>
+                                <a href="#" style={{ width: 36, height: 36, borderRadius: "50%", background: "rgba(59,130,246,.2)", border: "1px solid rgba(59,130,246,.3)", display: "flex", alignItems: "center", justifyContent: "center", color: "#3b82f6", textDecoration: "none", transition: "all 0.2s", fontSize: 14 }} onMouseEnter={(e) => { e.target.style.background = "#3b82f6"; e.target.style.color = "#fff"; }} onMouseLeave={(e) => { e.target.style.background = "rgba(59,130,246,.2)"; e.target.style.color = "#3b82f6"; }} title="Facebook">f</a>
+                                <a href="#" style={{ width: 36, height: 36, borderRadius: "50%", background: "rgba(59,130,246,.2)", border: "1px solid rgba(59,130,246,.3)", display: "flex", alignItems: "center", justifyContent: "center", color: "#3b82f6", textDecoration: "none", transition: "all 0.2s", fontSize: 12 }} onMouseEnter={(e) => { e.target.style.background = "#3b82f6"; e.target.style.color = "#fff"; }} onMouseLeave={(e) => { e.target.style.background = "rgba(59,130,246,.2)"; e.target.style.color = "#3b82f6"; }} title="Twitter">𝕏</a>
+                                <a href="#" style={{ width: 36, height: 36, borderRadius: "50%", background: "rgba(59,130,246,.2)", border: "1px solid rgba(59,130,246,.3)", display: "flex", alignItems: "center", justifyContent: "center", color: "#3b82f6", textDecoration: "none", transition: "all 0.2s", fontSize: 14 }} onMouseEnter={(e) => { e.target.style.background = "#3b82f6"; e.target.style.color = "#fff"; }} onMouseLeave={(e) => { e.target.style.background = "rgba(59,130,246,.2)"; e.target.style.color = "#3b82f6"; }} title="Instagram">📷</a>
+                                <a href="#" style={{ width: 36, height: 36, borderRadius: "50%", background: "rgba(59,130,246,.2)", border: "1px solid rgba(59,130,246,.3)", display: "flex", alignItems: "center", justifyContent: "center", color: "#3b82f6", textDecoration: "none", transition: "all 0.2s", fontSize: 14 }} onMouseEnter={(e) => { e.target.style.background = "#3b82f6"; e.target.style.color = "#fff"; }} onMouseLeave={(e) => { e.target.style.background = "rgba(59,130,246,.2)"; e.target.style.color = "#3b82f6"; }} title="LinkedIn">in</a>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Footer Divider */}
+                    <div style={{ height: "1px", background: "linear-gradient(90deg, transparent, rgba(255,255,255,.1), transparent)", margin: "24px 0" }} />
+
+                    {/* Footer Bottom - Copyright & Payment Methods */}
+                    <div className="footer-bottom">
+                        <div style={{ display: "flex", alignItems: "center", gap: 24, flexWrap: "wrap", justifyContent: "space-between", width: "100%" }}>
+                            <p style={{ fontSize: 12, color: "#9ca3af", margin: 0 }}>© 2025 Urbexon Hour. All rights reserved. | Made with ❤️ for local communities</p>
+                            <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                                <span style={{ fontSize: 11, color: "#9ca3af", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.5px" }}>We Accept</span>
+                                <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                                    <span style={{ fontSize: 16, background: "rgba(255,255,255,.1)", padding: "4px 8px", borderRadius: 4 }}>💳</span>
+                                    <span style={{ fontSize: 16, background: "rgba(255,255,255,.1)", padding: "4px 8px", borderRadius: 4 }}>🏦</span>
+                                    <span style={{ fontSize: 16, background: "rgba(255,255,255,.1)", padding: "4px 8px", borderRadius: 4 }}>📱</span>
+                                    <span style={{ fontSize: 16, background: "rgba(255,255,255,.1)", padding: "4px 8px", borderRadius: 4 }}>₹</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </footer>
         </div>
@@ -686,205 +972,408 @@ const getCategoryEmoji = (cat) => {
 const PAGE_CSS = `
 @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&display=swap');
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
-.uh-root{min-height:100vh;background:#f1f5f9;font-family:'DM Sans',-apple-system,BlinkMacSystemFont,sans-serif}
-.container{max-width:1400px;margin:0 auto;padding:0 clamp(16px,3vw,40px)}
+body{background:#fafbfc}
+main{position:relative;z-index:1}
+.uh-root{min-height:100vh;background:#fafbfc;font-family:'DM Sans',-apple-system,BlinkMacSystemFont,sans-serif;color:#1a202c;position:relative;overflow-x:hidden}
+.container{max-width:1280px;margin:0 auto;padding:0 clamp(16px,4vw,48px)}
 
 /* Initial loading */
-.uh-initial-loading{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:60vh;gap:12px;color:#64748b;font-size:14px}
-.uh-loader{width:36px;height:36px;border:3px solid #e8e4d9;border-top:3px solid #1a1740;border-radius:50%;animation:uhspin .8s linear infinite}
+.uh-initial-loading{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:60vh;gap:14px;color:#64748b;font-size:14px}
+.uh-loader{width:40px;height:40px;border:3px solid #e2e8f0;border-top:3px solid #3b82f6;border-radius:50%;animation:uhspin .8s linear infinite}
 @keyframes uhspin{to{transform:rotate(360deg)}}
 
-/* Saved pincode bar */
-.uh-pin-bar{background:#1a1740;color:#fff;position:sticky;top:0;z-index:20}
-.uh-pin-bar-inner{display:flex;align-items:center;justify-content:space-between;padding:12px 0;gap:12px}
-.uh-pin-bar-left{display:flex;align-items:center;gap:10px}
-.uh-bolt{color:#f59e0b}
-.uh-pin-bar-title{font-size:15px;font-weight:800}
-.uh-pin-bar-sub{font-size:11px;color:rgba(255,255,255,.5)}
-.uh-pin-bar-right{display:flex;align-items:center;gap:10px}
-.uh-pin-bar-loc{display:flex;align-items:center;gap:5px;font-size:12px;color:rgba(255,255,255,.7);background:rgba(255,255,255,.08);padding:6px 10px;border-radius:16px}
-.uh-change-btn{background:rgba(255,224,102,.15);border:1px solid rgba(255,224,102,.3);color:#ffe066;padding:5px 12px;border-radius:16px;font-size:11px;font-weight:700;cursor:pointer;font-family:'DM Sans',sans-serif;transition:background .15s}
-.uh-change-btn:hover{background:rgba(255,224,102,.25)}
+/* Saved pincode bar - Ultra Premium Header */
+.uh-pin-bar{background:linear-gradient(135deg,#0f172a 0%,#1e293b 50%,#0f172a 100%);color:#fff;position:sticky;top:0;z-index:20;border-bottom:none;box-shadow:0 6px 32px rgba(0,0,0,.2);backdrop-filter:blur(10px)}
+.uh-pin-bar-inner{display:flex;align-items:center;justify-content:space-between;padding:18px 0;gap:20px;flex-wrap:wrap}
+.uh-pin-bar-left{display:flex;align-items:center;gap:16px}
+.uh-bolt{color:#60a5fa;font-size:22px;animation:pulseIcon 2.5s ease-in-out infinite;filter:drop-shadow(0 4px 12px rgba(96,165,250,.3))}
+@keyframes pulseIcon{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.8;transform:scale(1.08)}}
+.uh-pin-bar-title{font-size:18px;font-weight:950;letter-spacing:-.8px;background:linear-gradient(135deg,#fff,#e0e7ff);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;font-family:'DM Sans'}
+.uh-pin-bar-sub{font-size:13px;color:rgba(255,255,255,.65);font-weight:600;letter-spacing:.4px;font-family:'DM Sans'}
+.uh-pin-bar-right{display:flex;align-items:center;gap:16px;flex-wrap:nowrap}
+.uh-pin-bar-loc{display:flex;align-items:center;gap:8px;font-size:12px;color:rgba(255,255,255,.9);background:rgba(59,130,246,.2);padding:10px 18px;border-radius:28px;border:1.5px solid rgba(59,130,246,.35);font-weight:700;transition:all .3s cubic-bezier(.34,.1,.68,1);letter-spacing:.2px;backdrop-filter:blur(4px)}
+.uh-pin-bar-loc:hover{background:rgba(59,130,246,.28);border-color:rgba(59,130,246,.5);transform:translateY(-2px);box-shadow:0 8px 24px rgba(59,130,246,.2)}
+.uh-change-btn{background:rgba(59,130,246,.22);border:1.5px solid rgba(59,130,246,.45);color:#60a5fa;padding:9px 20px;border-radius:24px;font-size:11px;font-weight:950;cursor:pointer;font-family:'DM Sans',sans-serif;transition:all .3s;white-space:nowrap;text-transform:uppercase;letter-spacing:.6px;backdrop-filter:blur(4px);box-shadow:0 4px 12px rgba(59,130,246,.15)}
+.uh-change-btn:hover{background:rgba(59,130,246,.32);border-color:rgba(59,130,246,.6);transform:translateY(-2px);box-shadow:0 10px 28px rgba(59,130,246,.35)}
 
 /* Search bar */
-.uh-search-bar{background:#fff;border-bottom:1px solid #e8e4d9;padding:10px 0}
-.uh-search-wrap{position:relative;display:flex;align-items:center;max-width:600px}
-.uh-search-ic{position:absolute;left:12px;color:#94a3b8;pointer-events:none}
-.uh-search-inp{width:100%;padding:10px 36px 10px 36px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:13px;font-family:'DM Sans',sans-serif;color:#1e293b;outline:none;transition:border-color .15s}
-.uh-search-inp:focus{border-color:#1a1740}
-.uh-search-inp::placeholder{color:#94a3b8}
-.uh-search-clear{position:absolute;right:10px;background:none;border:none;color:#94a3b8;cursor:pointer;padding:4px}
+.uh-search-bar{background:#fff;border-bottom:1px solid #e5e7eb;padding:14px 0;position:sticky;top:0;z-index:19;box-shadow:0 1px 3px rgba(0,0,0,.05)}
+.uh-search-wrap{position:relative;display:flex;align-items:center;width:100%;max-width:700px;margin:0 auto}
+.uh-search-ic{position:absolute;left:14px;color:#9ca3af;pointer-events:none;font-size:15px}
+.uh-search-inp{width:100%;padding:11px 14px 11px 40px;border:1.5px solid #e5e7eb;border-radius:10px;font-size:13px;font-family:'DM Sans',sans-serif;color:#1f2937;outline:none;transition:all .2s;background:#fff}
+.uh-search-inp:focus{border-color:#3b82f6;box-shadow:0 0 0 3px rgba(59,130,246,.1);background:#fff}
+.uh-search-inp::placeholder{color:#a1a1a1}
+.uh-search-clear{position:absolute;right:12px;background:none;border:none;color:#9ca3af;cursor:pointer;padding:5px;font-size:12px}
+.uh-search-clear:hover{color:#6b7280}
+
+/* PROFESSIONAL NAVBAR - Ultra Premium */
+.uh-navbar{background:#fff;border-bottom:none;position:sticky;top:0;z-index:30;box-shadow:0 6px 32px rgba(0,0,0,.08);transition:all .3s}
+.uh-navbar-inner{display:flex;align-items:center;gap:clamp(12px,2vw,22px);padding:clamp(10px,2vw,14px) 0;justify-content:space-between;font-family:'DM Sans';width:100%;min-width:0}
+.uh-navbar-brand{display:flex;align-items:center;gap:clamp(8px,2vw,14px);cursor:pointer;transition:all .3s;flex-shrink:0;min-width:0}
+.uh-navbar-brand:hover{transform:translateX(2px)}
+.uh-logo-mark{width:clamp(40px,8vw,50px);height:clamp(40px,8vw,50px);border-radius:16px;background:linear-gradient(135deg,#3b82f6,#2563eb);display:flex;align-items:center;justify-content:center;color:#fff;font-weight:950;box-shadow:0 10px 32px rgba(59,130,246,.32);font-size:clamp(18px,4vw,24px);transition:all .3s;flex-shrink:0}
+.uh-navbar-brand:hover .uh-logo-mark{transform:scale(1.08);box-shadow:0 14px 40px rgba(59,130,246,.4)}
+
+/* Combined Title + Subtitle */
+.uh-navbar-title-full{display:flex;flex-direction:column;gap:0;min-width:0}
+.uh-navbar-main-full{font-size:clamp(14px,2.5vw,16px);font-weight:950;color:#0f172a;letter-spacing:-.5px;font-family:'DM Sans';white-space:nowrap}
+.uh-navbar-sub-full{font-size:clamp(9px,2vw,11px);font-weight:700;color:#3b82f6;letter-spacing:.3px;white-space:nowrap}
+
+/* Search Bar */
+.uh-navbar-search-wrap{flex:1;max-width:500px;min-width:120px}
+.uh-navbar-search{position:relative;display:flex;align-items:center;width:100%;background:linear-gradient(135deg,#f8fafc,#f0f9ff);border:1.5px solid #e2e8f0;border-radius:14px;transition:all .3s cubic-bezier(.34,.1,.68,1);box-shadow:0 2px 12px rgba(59,130,246,.05);padding-right:clamp(36px,8vw,40px)}
+.uh-navbar-search:focus-within{border-color:#3b82f6;background:#fff;box-shadow:0 8px 32px rgba(59,130,246,.18);transform:translateY(-1px)}
+.uh-navbar-search-ic{position:absolute;left:clamp(12px,3vw,16px);color:#3b82f6;pointer-events:none;font-size:clamp(13px,2vw,16px);flex-shrink:0;font-weight:700}
+.uh-navbar-search-inp{width:100%;padding:clamp(10px,2vw,13px) 8px clamp(10px,2vw,13px) clamp(36px,8vw,44px);border:none;border-radius:14px;font-size:clamp(12px,2vw,13px);font-family:'DM Sans',sans-serif;color:#0f172a;outline:none;background:transparent;min-width:0;flex:1;font-weight:600;letter-spacing:.2px}
+.uh-navbar-search-inp::placeholder{color:#cbd5e1;font-weight:600;letter-spacing:.3px;font-size:clamp(11px,2vw,13px)}
+.uh-navbar-search-btn{position:absolute;right:8px;background:none;border:none;color:#3b82f6;cursor:pointer;padding:10px;font-size:15px;display:flex;align-items:center;justify-content:center;transition:all .2s;border-radius:8px;flex-shrink:0;font-weight:800}
+.uh-navbar-search-btn:hover{background:rgba(59,130,246,.15);transform:scale(1.1)}
+.uh-navbar-search-clear{position:absolute;right:8px;background:none;border:none;color:#64748b;cursor:pointer;padding:10px;font-size:14px;display:flex;align-items:center;justify-content:center;transition:all .2s;border-radius:8px;flex-shrink:0;font-weight:800}
+.uh-navbar-search-clear:hover{color:#ef4444;background:rgba(239,68,68,.1)}
+
+/* Right Section */
+.uh-navbar-right{display:flex;align-items:center;gap:clamp(8px,2vw,12px);flex-shrink:0;min-width:0}
+
+/* Combined Location */
+.uh-navbar-location-full{background:linear-gradient(135deg,#f0f9ff,#f8fafc);border:1px solid #dbeafe;display:flex;align-items:center;gap:clamp(6px,2vw,8px);padding:clamp(8px,1.5vw,10px) clamp(10px,2vw,14px);border-radius:12px;font-size:clamp(11px,2vw,12px);font-weight:800;color:#1e40af;font-family:'DM Sans',sans-serif;transition:all .3s;letter-spacing:.3px;white-space:nowrap;min-width:0;overflow:hidden;text-overflow:ellipsis}
+.uh-navbar-location-full:hover{background:linear-gradient(135deg,#eff6ff,#f0f9ff);border-color:#3b82f6;color:#3b82f6}
+
+/* Change Button */
+.uh-navbar-change-btn-full{background:rgba(59,130,246,.15);border:1.5px solid rgba(59,130,246,.3);color:#3b82f6;padding:clamp(7px,1.5vw,9px) clamp(12px,2vw,16px);border-radius:12px;font-size:clamp(10px,2vw,11px);font-weight:900;cursor:pointer;font-family:'DM Sans',sans-serif;transition:all .2s;white-space:nowrap;text-transform:uppercase;letter-spacing:.5px;flex-shrink:0}
+.uh-navbar-change-btn-full:hover{background:rgba(59,130,246,.25);border-color:rgba(59,130,246,.5);transform:translateY(-2px);box-shadow:0 6px 16px rgba(59,130,246,.2)}
+
+/* Avatar */
+.uh-navbar-account{background:none;border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .3s;padding:4px;flex-shrink:0}
+.uh-navbar-account:hover{transform:scale(1.15) rotate(5deg)}
+
+/* Store Switch Button */
+.uh-navbar-store-switch-btn{background:linear-gradient(135deg,#fbbf24,#f59e0b);border:1.5px solid rgba(245,158,11,.3);color:#fff;padding:clamp(8px,1.5vw,10px) clamp(10px,2vw,14px);border-radius:10px;font-size:clamp(11px,2vw,12px);font-weight:800;cursor:pointer;font-family:'DM Sans',sans-serif;transition:all .2s cubic-bezier(.34,.1,.68,1);white-space:nowrap;text-transform:uppercase;letter-spacing:.4px;flex-shrink:0;display:flex;align-items:center;gap:6px;box-shadow:0 4px 12px rgba(245,158,11,.2)}
+.uh-navbar-store-switch-btn:hover{background:linear-gradient(135deg,#fcd34d,#fbbf24);border-color:rgba(245,158,11,.6);transform:translateY(-2px);box-shadow:0 6px 16px rgba(245,158,11,.3)}
+.uh-navbar-store-switch-btn:active{transform:translateY(0)}
+.store-switch-label{font-weight:900}
+
+.uh-navbar-avatar{width:clamp(36px,8vw,42px);height:clamp(36px,8vw,42px);border-radius:50%;background:linear-gradient(135deg,#3b82f6,#6366f1);display:flex;align-items:center;justify-content:center;color:#fff;font-weight:950;font-size:clamp(12px,3vw,15px);box-shadow:0 8px 24px rgba(59,130,246,.28);transition:all .3s;border:2.5px solid #fff;position:relative;flex-shrink:0}
+.uh-navbar-avatar::after{content:'';position:absolute;inset:0;border-radius:50%;border:2px solid rgba(59,130,246,.3);animation:avatarRing 2s ease-in-out infinite}
+@keyframes avatarRing{0%{transform:scale(1)}50%{transform:scale(1.1)}100%{transform:scale(1)}}
+@media(max-width:768px){
+  .uh-navbar-inner{gap:10px;padding:10px 0;flex-wrap:wrap}
+  .uh-navbar-brand{gap:8px;flex-basis:100%;order:1}
+  .uh-logo-mark{width:clamp(38px,6vw,45px);height:clamp(38px,6vw,45px);font-size:clamp(16px,3vw,20px)}
+  .uh-navbar-main-full{font-size:clamp(13px,2vw,15px)}
+  .uh-navbar-sub-full{font-size:clamp(9px,1.5vw,10px)}
+  .uh-navbar-search-wrap{max-width:none;min-width:0;flex:1;flex-basis:100%;order:2}
+  .uh-navbar-search{padding-right:clamp(36px,8vw,42px);border-radius:12px}
+  .uh-navbar-search-ic{left:12px;font-size:14px}
+  .uh-navbar-right{gap:8px;flex-basis:100%;order:3;justify-content:space-between;width:100%}
+  .uh-navbar-location-full{flex:1;min-width:0}
+  .uh-navbar-store-switch-btn{padding:8px 12px;font-size:11px;gap:6px}
+  .store-switch-label{display:inline}
+  .search-results-inner{flex-direction:column;align-items:flex-start;gap:10px}
+  .search-results-inner>span{width:100%}
+  .search-clear-btn{width:100%;justify-content:center}
+}
+@media(max-width:480px){
+  .uh-navbar-inner{gap:8px;padding:10px 0}
+  .uh-navbar-brand{flex-basis:auto;order:0;gap:6px}
+  .uh-logo-mark{width:38px;height:38px;font-size:16px}
+  .uh-navbar-main-full{font-size:13px;font-weight:900}
+  .uh-navbar-sub-full{font-size:9px}
+  .uh-navbar-search-wrap{flex:1;min-width:0;order:0}
+  .uh-navbar-search{padding-right:40px;border-radius:10px}
+  .uh-navbar-search-inp{font-size:11px;padding:9px 8px 9px 36px}
+  .uh-navbar-search-btn{font-size:12px;padding:6px}
+  .uh-navbar-search-clear{font-size:11px;padding:6px}
+  .uh-navbar-right{gap:6px;order:0;width:auto}
+  .uh-navbar-location-full{padding:8px 10px;font-size:10px;display:none}
+  .uh-navbar-change-btn-full{padding:7px 10px;font-size:9px}
+  .uh-navbar-store-switch-btn{padding:6px 8px;font-size:10px;font-weight:800}
+  .store-switch-label{display:none}
+  .uh-navbar-account{padding:0}
+  .uh-navbar-avatar{width:34px;height:34px;font-size:11px}
+  .search-results-bar{margin:8px 0}
+  .search-results-inner{padding:10px 12px;gap:8px}
+  .search-results-inner>span{font-size:12px}
+  .search-clear-btn{padding:4px 8px;font-size:10px}
+}
 
 /* HERO */
-.hero{background:linear-gradient(135deg,#1a1740 0%,#2874f0 55%,#1455c0 100%);position:relative;overflow:hidden}
-.hero-bg{position:absolute;inset:0;pointer-events:none;background:url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none'%3E%3Cg fill='%23ffffff' fill-opacity='0.03'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")}
-.hero-inner{position:relative;z-index:1;display:flex;align-items:center;gap:40px;padding-top:clamp(32px,5vw,60px);padding-bottom:clamp(40px,6vw,70px)}
+.hero{background:linear-gradient(135deg,#667eea 0%,#764ba2 50%,#f093fb 100%);position:relative;overflow:hidden;margin-bottom:0}
+.hero-bg{position:absolute;inset:0;pointer-events:none;opacity:.3;background:url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none'%3E%3Cg fill='%23ffffff' fill-opacity='0.1'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")}
+.hero-inner{position:relative;z-index:1;display:flex;align-items:center;gap:48px;padding:clamp(48px,6vw,80px) 0;justify-content:space-between}
 .hero-content{flex:1}
-.hero-badge{display:inline-flex;align-items:center;gap:5px;background:rgba(255,224,102,.18);border:1px solid rgba(255,224,102,.4);color:#ffe066;font-size:11px;font-weight:800;letter-spacing:.8px;text-transform:uppercase;padding:5px 12px;border-radius:20px;margin-bottom:14px}
-.hero-title{font-size:clamp(24px,4vw,44px);font-weight:800;line-height:1.2;color:#fff;margin-bottom:10px}
-.hero-title em{font-style:normal;color:#ffe066}
-.hero-sub{font-size:15px;color:rgba(255,255,255,.65);margin-bottom:24px;max-width:480px}
-.hero-art{position:relative;width:clamp(100px,18vw,220px);flex-shrink:0;align-self:stretch;display:flex;align-items:center;justify-content:center}
-.hero-c1{position:absolute;width:180px;height:180px;border-radius:50%;background:rgba(255,255,255,.06);right:-30px;top:-20px}
-.hero-c2{position:absolute;width:100px;height:100px;border-radius:50%;background:rgba(255,224,102,.08);right:20px;top:40px}
-.hero-emoji{font-size:clamp(60px,10vw,110px);position:relative;z-index:2;filter:drop-shadow(4px 8px 16px rgba(0,0,0,.3));animation:bob 2.5s ease-in-out infinite}
-@keyframes bob{0%,100%{transform:translateY(0)}50%{transform:translateY(-10px)}}
+.hero-badge{display:inline-flex;align-items:center;gap:6px;background:rgba(255,255,255,.2);border:1px solid rgba(255,255,255,.4);color:#fff;font-size:11px;font-weight:700;letter-spacing:.6px;text-transform:uppercase;padding:7px 14px;border-radius:24px;margin-bottom:18px;backdrop-filter:blur(10px)}
+.hero-title{font-size:clamp(28px,5vw,48px);font-weight:800;line-height:1.15;color:#fff;margin-bottom:12px;letter-spacing:-.5px}
+.hero-title em{font-style:normal;background:linear-gradient(120deg,#ffd89b,#fff);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.hero-sub{font-size:16px;color:rgba(255,255,255,.85);margin-bottom:28px;max-width:480px;line-height:1.6}
+.hero-art{position:relative;width:clamp(120px,20vw,260px);flex-shrink:0;align-self:center;height:clamp(150px,20vw,260px)}
+.hero-c1{position:absolute;width:200px;height:200px;border-radius:50%;background:rgba(255,255,255,.06);right:-40px;top:-30px}
+.hero-c2{position:absolute;width:120px;height:120px;border-radius:50%;background:rgba(255,255,255,.08);right:30px;bottom:20px}
+.hero-emoji{font-size:clamp(80px,12vw,140px);position:relative;z-index:2;filter:drop-shadow(0 8px 24px rgba(0,0,0,.2));animation:bob 3s ease-in-out infinite}
+@keyframes bob{0%,100%{transform:translateY(0)}50%{transform:translateY(-15px)}}
 
 /* PINCODE */
-.pin-block{max-width:520px}
-.pin-row{display:flex;gap:10px;margin-bottom:10px}
-.pin-inp-wrap{flex:1;position:relative;display:flex;align-items:center}
-.pin-search-ic{position:absolute;left:13px;color:rgba(0,0,0,.35);pointer-events:none}
-.pin-inp{width:100%;padding:13px 14px 13px 36px;background:#fff;border:none;border-radius:8px;font-size:15px;font-weight:600;letter-spacing:2px;color:#1e293b;outline:none;box-shadow:0 3px 12px rgba(0,0,0,.18);font-family:'DM Sans',sans-serif}
-.pin-inp::placeholder{color:#94a3b8;letter-spacing:0;font-weight:400;font-size:13px}
-.pin-btn{padding:13px 22px;background:#ffe066;border:none;border-radius:8px;color:#1a3a8f;font-weight:800;font-size:13px;cursor:pointer;box-shadow:0 3px 12px rgba(0,0,0,.18);transition:opacity .2s;white-space:nowrap;display:flex;align-items:center;justify-content:center;min-width:80px;font-family:'DM Sans',sans-serif}
-.pin-btn:disabled{opacity:.5;cursor:not-allowed}
-.detect-btn{background:none;border:none;color:rgba(255,255,255,.7);font-size:12px;cursor:pointer;display:flex;align-items:center;gap:5px;padding:0;font-family:'DM Sans',sans-serif;font-weight:500;transition:color .15s}
-.detect-btn:hover{color:#ffe066}
+.pin-block{max-width:600px}
+.pin-row{display:flex;gap:12px;margin-bottom:12px;flex-wrap:wrap}
+.pin-inp-wrap{flex:1;min-width:200px;position:relative;display:flex;align-items:center}
+.pin-search-ic{position:absolute;left:14px;color:rgba(0,0,0,.3);pointer-events:none;font-size:14px}
+.pin-inp{width:100%;padding:13px 14px 13px 40px;background:#fff;border:none;border-radius:10px;font-size:15px;font-weight:600;letter-spacing:1.5px;color:#1f2937;outline:none;box-shadow:0 4px 16px rgba(0,0,0,.15);font-family:'DM Sans',sans-serif;transition:all .2s}
+.pin-inp:focus{box-shadow:0 8px 24px rgba(0,0,0,.2)}
+.pin-inp::placeholder{color:#a1a1a1;letter-spacing:0;font-weight:400;font-size:13px}
+.pin-btn{padding:13px 28px;background:linear-gradient(135deg,#3b82f6,#2563eb);border:none;border-radius:10px;color:#fff;font-weight:800;font-size:13px;cursor:pointer;box-shadow:0 4px 16px rgba(59,130,246,.3);transition:all .2s;white-space:nowrap;display:inline-flex;align-items:center;justify-content:center;gap:8px;font-family:'DM Sans',sans-serif;letter-spacing:.3px}
+.pin-btn:hover{transform:translateY(-2px);box-shadow:0 6px 20px rgba(59,130,246,.4)}
+.pin-btn:disabled{opacity:.6;cursor:not-allowed;transform:none}
+.detect-btn{background:none;border:none;color:rgba(255,255,255,.75);font-size:12px;cursor:pointer;display:inline-flex;align-items:center;gap:6px;padding:8px 14px;font-family:'DM Sans',sans-serif;font-weight:600;transition:all .15s;border-radius:8px}
+.detect-btn:hover{color:#fff;background:rgba(255,255,255,.1)}
 .detect-btn:disabled{opacity:.5;cursor:not-allowed}
 .pin-error{color:#fca5a5;font-size:12px;margin-top:8px;font-weight:500}
-.spin{width:16px;height:16px;display:inline-block;border:2.5px solid rgba(26,58,143,.25);border-top-color:#1a3a8f;border-radius:50%;animation:sp .7s linear infinite}
+.spin{width:14px;height:14px;display:inline-block;border:2px solid rgba(255,255,255,.3);border-top-color:#fff;border-radius:50%;animation:sp .6s linear infinite}
 @keyframes sp{to{transform:rotate(360deg)}}
 
-/* TRUST STRIP */
-.trust-strip{background:#fff;border-bottom:1px solid #e8e4d9}
-.trust-inner{display:grid;grid-template-columns:repeat(4,1fr)}
-.trust-item{display:flex;align-items:center;gap:10px;padding:14px clamp(6px,2vw,24px);border-right:1px solid #f0ece4}
+/* TRUST STRIP - Premium */
+.trust-strip{background:linear-gradient(135deg,#f8fafc,#f0f9ff);border-bottom:1px solid #e0e7ff;border-top:1px solid #e0e7ff}
+.trust-inner{display:grid;grid-template-columns:repeat(4,1fr);gap:0;width:100%;overflow:hidden}
+.trust-item{display:flex;align-items:center;gap:clamp(12px,2vw,16px);padding:clamp(16px,3vw,26px) clamp(18px,3vw,28px);border-right:1px solid #e0e7ff;position:relative;transition:all .25s;min-width:0}
 .trust-item:last-child{border-right:none}
-.trust-ic{font-size:clamp(20px,3vw,26px);flex-shrink:0}
-.trust-title{font-size:11px;font-weight:700;color:#1e293b}
-.trust-sub{font-size:10px;color:#94a3b8}
-@media(max-width:640px){
+.trust-item:hover{background:linear-gradient(135deg,rgba(59,130,246,.08),rgba(99,102,241,.05));transform:translateY(-1px)}
+.trust-ic{font-size:clamp(24px,3.5vw,38px);flex-shrink:0;animation:slideInTrust .6s cubic-bezier(.34,.1,.68,1) backwards;filter:drop-shadow(0 2px 4px rgba(0,0,0,.05))}
+.trust-title{font-size:clamp(11px,2.5vw,13px);font-weight:900;color:#0f172a;letter-spacing:.5px;text-transform:uppercase;font-family:'DM Sans';white-space:normal;word-break:break-word}
+.trust-sub{font-size:clamp(10px,2vw,12px);color:#64748b;margin-top:2px;line-height:1.3;font-weight:500;white-space:normal;word-break:break-word}
+.trust-item:nth-child(1) .trust-ic{animation-delay:0ms}
+.trust-item:nth-child(2) .trust-ic{animation-delay:80ms}
+.trust-item:nth-child(3) .trust-ic{animation-delay:160ms}
+.trust-item:nth-child(4) .trust-ic{animation-delay:240ms}
+@keyframes slideInTrust{from{opacity:0;transform:translateY(-10px)}to{opacity:1;transform:translateY(0)}}
+@media(max-width:1024px){
+  .trust-inner{grid-template-columns:repeat(4,1fr)}
+  .trust-item{padding:clamp(14px,2.5vw,22px) clamp(14px,2.5vw,24px)}
+}
+@media(max-width:768px){
   .trust-inner{grid-template-columns:repeat(2,1fr)}
-  .trust-item{border-right:none;border-bottom:1px solid #f0ece4;padding:12px clamp(10px,3vw,20px)}
-  .trust-item:nth-child(odd){border-right:1px solid #f0ece4}
+  .trust-item{border-right:none;border-bottom:1px solid #e0e7ff;padding:12px 16px;min-width:0}
+  .trust-item:nth-child(odd){border-right:1px solid #e0e7ff}
   .trust-item:nth-child(3),.trust-item:nth-child(4){border-bottom:none}
   .trust-sub{display:none}
+  .trust-title{font-size:clamp(11px,3vw,12px)}
+  .trust-ic{font-size:clamp(22px,4vw,30px)}
+}
+@media(max-width:480px){
+  .trust-inner{grid-template-columns:repeat(2,1fr)}
+  .trust-item{padding:10px 12px;gap:8px}
+  .trust-title{font-size:10px}
+  .trust-sub{display:none}
+  .trust-ic{font-size:20px}
 }
 
 /* SECTIONS */
-.section{background:#fff;margin:8px 0;padding:20px 0}
-.section-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px}
-.section-title{font-size:16px;font-weight:800;color:#1e293b}
-.see-all-btn{display:flex;align-items:center;gap:4px;font-size:12px;color:#1a1740;font-weight:700;background:none;border:none;cursor:pointer;font-family:'DM Sans',sans-serif}
+.section{background:#fff;margin:16px 0;padding:clamp(24px,4vw,40px) 0;border-bottom:1px solid #f0f0f0}
+.section-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:24px;gap:12px}
+.section-title{font-size:clamp(16px,3vw,22px);font-weight:800;color:#1f2937;letter-spacing:-.3px}
+.see-all-btn{display:inline-flex;align-items:center;gap:6px;font-size:12px;color:#3b82f6;font-weight:700;background:none;border:none;cursor:pointer;font-family:'DM Sans',sans-serif;padding:4px 8px;border-radius:6px;transition:all .2s}
+.see-all-btn:hover{background:rgba(59,130,246,.08)}
 
 /* CATEGORY GRID */
-.g-cat-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(80px,1fr));gap:10px}
-@media(max-width:480px){.g-cat-grid{grid-template-columns:repeat(4,1fr);gap:8px}}
-@media(max-width:340px){.g-cat-grid{grid-template-columns:repeat(3,1fr)}}
-.g-cat-item{display:flex;flex-direction:column;align-items:center;gap:6px;cursor:pointer}
-.g-cat-emoji{width:clamp(48px,8vw,72px);height:clamp(48px,8vw,72px);background:#f8fafc;border:1.5px solid #e2e8f0;border-radius:14px;display:flex;align-items:center;justify-content:center;font-size:clamp(20px,3vw,28px);transition:transform .15s,border-color .15s,background .15s}
-.g-cat-item:hover .g-cat-emoji,.g-cat-item.active .g-cat-emoji{border-color:#1a1740;background:#eef0fb;transform:translateY(-3px)}
-.g-cat-label{font-size:10px;font-weight:600;color:#475569;text-align:center;text-transform:capitalize;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:80px}
+.g-cat-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(100px,1fr));gap:16px;margin:0 -8px;padding:0 8px}
+@media(max-width:640px){.g-cat-grid{grid-template-columns:repeat(4,1fr);gap:12px;margin:0;padding:0}}
+@media(max-width:480px){.g-cat-grid{grid-template-columns:repeat(3,1fr);gap:10px}}
+.g-cat-item{display:flex;flex-direction:column;align-items:center;gap:10px;cursor:pointer;position:relative;transition:transform .2s;border-radius:16px;padding:8px 4px}
+.g-cat-item:hover{transform:translateY(-4px)}
+.g-cat-emoji{width:clamp(56px,10vw,88px);height:clamp(56px,10vw,88px);background:#fff;border:2px solid #e5e7eb;border-radius:16px;display:flex;align-items:center;justify-content:center;font-size:clamp(24px,4vw,36px);transition:all .25s;box-shadow:0 2px 8px rgba(0,0,0,.05)}
+.g-cat-item:hover .g-cat-emoji,.g-cat-item.active .g-cat-emoji{border-color:#3b82f6;background:#eff6ff;box-shadow:0 4px 16px rgba(59,130,246,.15);transform:scale(1.08)}
+.g-cat-label{font-size:11px;font-weight:600;color:#475569;text-align:center;text-transform:capitalize;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:100%;transition:color .2s}
+.g-cat-item:hover .g-cat-label,.g-cat-item.active .g-cat-label{color:#3b82f6;font-weight:700}
 
 /* AVAILABILITY */
-.avail-bar{background:#ecfdf5;border-top:1px solid #bbf7d0;border-bottom:1px solid #bbf7d0;margin:8px 0}
-.avail-inner{display:flex;align-items:center;gap:8px;padding-top:12px;padding-bottom:12px;font-size:13px;color:#065f46}
-.avail-pin{color:#059669;flex-shrink:0}
+.avail-bar{background:linear-gradient(135deg,#dcfce7,#ecfdf5);border-top:1px solid #bbf7d0;border-bottom:1px solid #bbf7d0;margin:12px 0}
+.avail-inner{display:flex;align-items:center;gap:10px;padding:14px 16px;font-size:13px;color:#166534;font-weight:500}
+.avail-pin{color:#16a34a;flex-shrink:0;font-size:14px}
+
+/* SEARCH RESULTS BAR */
+.search-results-bar{background:linear-gradient(135deg,#eff6ff,#f0f9ff);border:1px solid #bfdbfe;border-bottom:2px solid #3b82f6;margin:12px 0;animation:slideDown .3s ease;position:relative;z-index:25}
+.search-results-inner{display:flex;align-items:center;gap:12px;padding:14px 16px;justify-content:space-between;flex-wrap:wrap}
+.search-results-inner>span{display:flex;align-items:center;gap:10px;font-size:13px;color:#1e40af;font-weight:500;flex:1}
+.search-results-inner strong{color:#1e3a8a;font-weight:700}
+.search-clear-btn{background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.3);color:#dc2626;padding:6px 12px;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;font-family:'DM Sans',sans-serif;display:flex;align-items:center;gap:6px;transition:all .2s;white-space:nowrap}
+.search-clear-btn:hover{background:rgba(239,68,68,.2);border-color:rgba(239,68,68,.5)}
+@keyframes slideDown{from{opacity:0;transform:translateY(-8px);max-height:0}to{opacity:1;transform:translateY(0);max-height:60px}}
 
 /* UH FLASH DEALS */
-.uh-deals-section{background:#fff;margin:8px 0;padding:20px 0;overflow:hidden}
-.uh-deals-header{margin-bottom:16px}
-.uh-deals-title-row{display:flex;align-items:center;gap:10px}
-.uh-deals-icon{width:36px;height:36px;border-radius:10px;background:linear-gradient(135deg,#ff6b35,#f7c948);display:flex;align-items:center;justify-content:center;color:#fff;flex-shrink:0}
-.uh-deals-title{font-size:16px;font-weight:800;color:#1e293b}
-.uh-deals-sub{font-size:11px;color:#64748b;margin-top:1px}
-.uh-deals-scroll{display:flex;gap:12px;overflow-x:auto;padding-bottom:8px;scroll-snap-type:x mandatory;-webkit-overflow-scrolling:touch}
-.uh-deals-scroll::-webkit-scrollbar{height:4px}
-.uh-deals-scroll::-webkit-scrollbar-track{background:#f1f5f9;border-radius:4px}
-.uh-deals-scroll::-webkit-scrollbar-thumb{background:#cbd5e1;border-radius:4px}
-.uh-deals-scroll-item{min-width:170px;max-width:190px;flex-shrink:0;scroll-snap-align:start;background:#fff;border:1.5px solid #e2e8f0;border-radius:10px;overflow:hidden;transition:border-color .15s,box-shadow .2s}
-.uh-deals-scroll-item:hover{border-color:#f59e0b;box-shadow:0 4px 16px rgba(245,158,11,.12)}
-.uh-deals-scroll-item .pc{padding:10px 10px 6px;border-radius:0}
-.uh-deals-scroll-item .pc-img-wrap{border-radius:6px}
-.uh-deal-timer{display:flex;align-items:center;gap:4px;padding:6px 10px;background:#fff7ed;border-top:1px solid #fed7aa;font-size:10px;font-weight:700;color:#ea580c}
-@media(max-width:480px){.uh-deals-scroll-item{min-width:150px;max-width:160px}}
+.uh-deals-section{background:#fff;margin:16px 0;padding:clamp(24px,4vw,40px) 0;border-bottom:1px solid #f0f0f0;overflow:hidden}
+.uh-deals-header{margin-bottom:24px}
+.uh-deals-title-row{display:flex;align-items:center;gap:14px}
+.uh-deals-icon{width:48px;height:48px;border-radius:14px;background:linear-gradient(135deg,#ff6b35 0%,#ff8c42 100%);display:flex;align-items:center;justify-content:center;color:#fff;flex-shrink:0;font-size:20px;box-shadow:0 4px 12px rgba(255,107,53,.25)}
+.uh-deals-title{font-size:clamp(16px,3vw,22px);font-weight:800;color:#1f2937;letter-spacing:-.3px}
+.uh-deals-sub{font-size:12px;color:#6b7280;margin-top:4px;font-weight:500}
+.uh-deals-scroll{display:flex;gap:14px;overflow-x:auto;padding-bottom:10px;scroll-snap-type:x mandatory;-webkit-overflow-scrolling:touch}
+.uh-deals-scroll::-webkit-scrollbar{height:5px}
+.uh-deals-scroll::-webkit-scrollbar-track{background:#f3f4f6;border-radius:6px}
+.uh-deals-scroll::-webkit-scrollbar-thumb{background:#cbd5e1;border-radius:6px}
+.uh-deals-scroll::-webkit-scrollbar-thumb:hover{background:#9ca3af}
+.uh-deals-scroll-item{min-width:200px;max-width:220px;flex-shrink:0;scroll-snap-align:start;background:#fff;border:1.5px solid #e5e7eb;border-radius:12px;overflow:hidden;transition:all .25s;box-shadow:0 2px 8px rgba(0,0,0,.04)}
+.uh-deals-scroll-item:hover{border-color:#ff6b35;box-shadow:0 6px 20px rgba(255,107,53,.12);transform:translateY(-3px)}
+.uh-deals-scroll-item .pc{padding:0}
+.uh-deals-scroll-item .pc-img-wrap{border-radius:0}
+.uh-deal-timer{display:flex;align-items:center;justify-content:center;gap:6px;padding:8px 12px;background:#fff7ed;border-top:1px solid #fed7aa;font-size:11px;font-weight:700;color:#ea580c;letter-spacing:.2px}
+.uh-deal-badge{padding:8px 10px;background:#fff3cd;border-top:1px solid #ffe69c;font-size:11px;font-weight:700;text-align:center;color:#856404}
+.uh-deal-badge.ending-soon{background:linear-gradient(135deg,#fecaca,#fca5a5);border-top:1px solid #f87171;color:#7f1d1d;font-weight:800}
+@media(max-width:640px){.uh-deals-scroll-item{min-width:180px;max-width:200px}}
 
 /* VENDOR BLOCK */
-.vendor-block{background:#fff;border-radius:8px;border:1px solid #e8e4d9;margin:12px 0;overflow:hidden}
-.vendor-header{display:flex;align-items:center;gap:12px;padding:12px 16px;border-bottom:1px solid #f1f5f9}
-@media(min-width:640px){.vendor-header{padding:16px 20px;gap:14px}}
-.vendor-avatar{width:40px;height:40px;border-radius:10px;background:#eef0fb;color:#1a1740;display:flex;align-items:center;justify-content:center;flex-shrink:0}
-@media(min-width:640px){.vendor-avatar{width:48px;height:48px;border-radius:12px}}
+.vendor-block{background:#fff;border-radius:14px;border:1px solid #e5e7eb;margin:16px 0;overflow:visible;transition:all .25s;box-shadow:0 2px 8px rgba(0,0,0,.04)}
+.vendor-block:hover{border-color:#e0e7ff;box-shadow:0 4px 16px rgba(0,0,0,.06)}
+.vendor-header{display:flex;align-items:center;gap:14px;padding:16px 20px;border-bottom:1px solid #f3f4f6;background:#fafbfc;transition:background .2s}
+.vendor-avatar{width:48px;height:48px;border-radius:12px;background:linear-gradient(135deg,#dbeafe,#eff6ff);color:#1e40af;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:20px}
 .vendor-info{flex:1}
-.vendor-name{font-size:14px;font-weight:700;color:#1e293b}
-.vendor-meta{display:flex;align-items:center;gap:5px;font-size:11px;color:#64748b;margin-top:3px;flex-wrap:wrap}
-.star-ic{color:#f59e0b}
+.vendor-name{font-size:14px;font-weight:800;color:#1f2937;letter-spacing:-.2px}
+.vendor-meta{display:flex;align-items:center;gap:8px;font-size:12px;color:#6b7280;margin-top:4px;flex-wrap:wrap;font-weight:500}
+.star-ic{color:#f59e0b;font-size:11px}
 
 /* PRODUCT GRID */
-.prod-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:1px;background:#f1f5f9}
-@media(max-width:480px){.prod-grid{grid-template-columns:repeat(2,1fr)}}
-@media(max-width:340px){.prod-grid{grid-template-columns:1fr}}
+.prod-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:14px;background:transparent;padding:20px;border-radius:0 0 14px 14px}
+@media(max-width:768px){.prod-grid{grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:12px;padding:16px}}
+@media(max-width:480px){.prod-grid{grid-template-columns:repeat(2,1fr);gap:10px;padding:12px}}
 
 /* PRODUCT CARD */
-.pc{background:#fff;padding:clamp(10px,2vw,16px) clamp(8px,2vw,14px);cursor:pointer;transition:background .15s}
-.pc:hover{background:#fafbff}
-.pc-img-wrap{position:relative;aspect-ratio:1;background:#f8fafc;border-radius:8px;overflow:hidden;margin-bottom:10px}
-.pc-img{width:100%;height:100%;object-fit:cover}
-.pc-disc{position:absolute;top:8px;left:8px;background:#16a34a;color:#fff;font-size:9px;font-weight:800;padding:2px 6px;border-radius:4px;letter-spacing:.3px}
-.pc-tag{position:absolute;top:8px;right:8px;background:#f97316;color:#fff;font-size:9px;font-weight:700;padding:2px 6px;border-radius:4px}
-.pc-brand{font-size:10px;font-weight:800;color:#374151;text-transform:uppercase;letter-spacing:.5px;margin-bottom:2px}
-.pc-name{font-size:12px;font-weight:600;color:#1e293b;margin-bottom:4px;line-height:1.35;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
-@media(max-width:480px){.pc-name{font-size:11px}}
-.pc-prep{display:flex;align-items:center;gap:4px;font-size:10px;color:#94a3b8;margin-bottom:7px}
-.pc-price-row{display:flex;align-items:baseline;gap:6px;margin-bottom:10px;flex-wrap:wrap}
-.pc-price{font-size:14px;font-weight:800;color:#1e293b}
-@media(max-width:480px){.pc-price{font-size:13px}}
-.pc-mrp{font-size:11px;color:#94a3b8;text-decoration:line-through}
-.pc-disc-text{font-size:11px;font-weight:700;color:#16a34a}
+.pc{background:#fff;padding:0;cursor:pointer;border-radius:12px;transition:all .25s;border:1px solid transparent;height:100%;display:flex;flex-direction:column;overflow:hidden}
+.pc:hover{background:#fff;border-color:#e5e7eb;box-shadow:0 4px 16px rgba(0,0,0,.08);transform:translateY(-2px)}
+.pc-img-wrap{position:relative;aspect-ratio:1;background:linear-gradient(135deg,#f8fafc,#f0f9ff);border-radius:0;overflow:hidden;border:none;flex-shrink:0}
+.pc-img{width:100%;height:100%;object-fit:cover;transition:transform .3s}
+.pc:hover .pc-img{transform:scale(1.05)}
+.pc-disc{position:absolute;top:10px;left:10px;background:linear-gradient(135deg,#ef4444,#dc2626);color:#fff;font-size:10px;font-weight:800;padding:4px 8px;border-radius:6px;letter-spacing:.4px;box-shadow:0 2px 8px rgba(239,68,68,.25)}
+.pc-tag{position:absolute;top:10px;right:10px;background:#f97316;color:#fff;font-size:10px;font-weight:700;padding:4px 8px;border-radius:6px;animation:pulse 2s ease-in-out infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.7}}
+.pc-body{padding:12px;display:flex;flex-direction:column;gap:4px;flex:1}
+.pc-brand{font-size:10px;font-weight:800;color:#6366f1;text-transform:uppercase;letter-spacing:.5px;margin-bottom:2px}
+.pc-name{font-size:13px;font-weight:700;color:#1f2937;margin-bottom:4px;line-height:1.4;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.pc-prep{display:flex;align-items:center;gap:5px;font-size:11px;color:#9ca3af;margin-bottom:4px;font-weight:500}
+.pc-price-row{display:flex;align-items:baseline;gap:8px;margin-bottom:8px;flex-wrap:wrap}
+.pc-price{font-size:15px;font-weight:800;color:#1f2937}
+.pc-mrp{font-size:12px;color:#9ca3af;text-decoration:line-through;font-weight:500}
+.pc-disc-text{font-size:12px;font-weight:700;color:#16a34a;background:#dcfce7;padding:2px 6px;border-radius:4px}
 
 /* ADD button */
-.pc-add{width:100%;padding:8px;background:#fff;border:1.5px solid #1a1740;color:#1a1740;font-weight:700;font-size:12px;border-radius:7px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:5px;transition:all .15s;font-family:'DM Sans',sans-serif}
-.pc-add:hover{background:#1a1740;color:#fff}
+.pc-add{width:100%;padding:10px;background:#fff;border:1.5px solid #3b82f6;color:#3b82f6;font-weight:700;font-size:13px;border-radius:8px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;transition:all .25s cubic-bezier(.34,.1,.68,1);font-family:'DM Sans',sans-serif;letter-spacing:.2px;margin-top:auto;position:relative;overflow:hidden}
+.pc-add::before{content:'';position:absolute;top:0;left:-100%;width:100%;height:100%;background:rgba(255,255,255,.5);transition:left .4s ease}
+.pc-add:hover{background:#3b82f6;color:#fff;box-shadow:0 4px 12px rgba(59,130,246,.25);transform:scale(1.02)}
+.pc-add:active{transform:scale(0.98)}
 
-/* QTY Stepper (Flipkart Minutes style) */
-.pc-qty-stepper{display:flex;align-items:center;justify-content:space-between;border:1.5px solid #1a1740;border-radius:7px;overflow:hidden;background:#1a1740}
-.pc-qty-stepper button{width:32px;height:32px;border:none;background:transparent;color:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:background .15s;font-size:11px}
-.pc-qty-stepper button:hover{background:rgba(255,255,255,.1)}
-.pc-qty-stepper span{flex:1;text-align:center;font-size:13px;font-weight:800;color:#fff}
+/* QTY Stepper (Modern style) */
+.pc-qty-stepper{display:flex;align-items:center;justify-content:space-between;border:1.5px solid #3b82f6;border-radius:8px;overflow:hidden;background:#fff;margin-top:auto;transition:all .15s}
+.pc-qty-stepper:hover{box-shadow:0 2px 8px rgba(59,130,246,.12)}
+.pc-qty-stepper button{width:32px;height:32px;border:none;background:transparent;color:#3b82f6;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .15s cubic-bezier(.34,.1,.68,1);font-size:12px;font-weight:700;position:relative}
+.pc-qty-stepper button:hover{background:#eff6ff;transform:scale(1.1)}
+.pc-qty-stepper button:active{transform:scale(0.95)}
+.pc-qty-stepper span{flex:1;text-align:center;font-size:14px;font-weight:800;color:#3b82f6;transition:all .15s;user-select:none}
+.pc-qty-stepper:hover span{font-weight:900}
 
 /* STATES */
-.empty-state{padding:60px 24px;text-align:center;display:flex;flex-direction:column;align-items:center;gap:12px}
-.empty-ic{color:#cbd5e1}
-.empty-title{font-size:17px;font-weight:700;color:#1e293b}
-.empty-sub{font-size:14px;color:#94a3b8}
-.state-card{background:#fff;border:1px solid #e8e4d9;border-radius:10px;padding:clamp(32px,5vw,56px) 24px;text-align:center;margin:16px 0;display:flex;flex-direction:column;align-items:center}
-.state-title{font-size:18px;font-weight:800;color:#1e293b;margin-bottom:8px}
-.state-sub{font-size:14px;color:#64748b;margin-bottom:20px}
-.waitlist-row{display:flex;gap:10px;width:100%;max-width:440px}
-.waitlist-inp{flex:1;padding:12px 14px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;font-size:13px;color:#1e293b;outline:none;font-family:'DM Sans',sans-serif}
-.waitlist-inp:focus{border-color:#1a1740}
-.waitlist-btn{padding:12px 18px;background:#1a1740;border:none;border-radius:8px;color:#c9a84c;font-weight:700;font-size:13px;cursor:pointer;white-space:nowrap;font-family:'DM Sans',sans-serif;transition:background .15s}
-.waitlist-btn:hover{background:#252060}
-.wl-success{background:#ecfdf5;border:1px solid #bbf7d0;border-radius:8px;color:#065f46;font-weight:600;font-size:14px;text-align:center;padding:20px;margin:16px 0}
+.empty-state{padding:clamp(40px,8vw,80px) 24px;text-align:center;display:flex;flex-direction:column;align-items:center;gap:14px}
+.empty-ic{color:#d1d5db;font-size:48px}
+.empty-title{font-size:18px;font-weight:800;color:#1f2937}
+.empty-sub{font-size:14px;color:#6b7280;max-width:380px}
+.state-card{background:#fff;border:1.5px solid #e5e7eb;border-radius:14px;padding:clamp(40px,6vw,60px) 32px;text-align:center;margin:24px 0;display:flex;flex-direction:column;align-items:center;box-shadow:0 2px 8px rgba(0,0,0,.04)}
+.state-title{font-size:20px;font-weight:800;color:#1f2937;margin-bottom:10px;letter-spacing:-.3px}
+.state-sub{font-size:14px;color:#6b7280;margin-bottom:24px;line-height:1.6}
+.waitlist-row{display:flex;gap:12px;width:100%;max-width:480px;flex-wrap:wrap}
+.waitlist-inp{flex:1;min-width:200px;padding:12px 16px;background:#f9fafb;border:1.5px solid #e5e7eb;border-radius:8px;font-size:13px;color:#1f2937;outline:none;font-family:'DM Sans',sans-serif;transition:all .2s}
+.waitlist-inp:focus{border-color:#3b82f6;background:#fff;box-shadow:0 0 0 3px rgba(59,130,246,.1)}
+.waitlist-btn{padding:12px 20px;background:linear-gradient(135deg,#3b82f6,#2563eb);border:none;border-radius:8px;color:#fff;font-weight:800;font-size:13px;cursor:pointer;white-space:nowrap;font-family:'DM Sans',sans-serif;transition:all .2s;box-shadow:0 2px 8px rgba(59,130,246,.2);letter-spacing:.2px}
+.waitlist-btn:hover{transform:translateY(-2px);box-shadow:0 4px 12px rgba(59,130,246,.3)}
+.wl-success{background:#dcfce7;border:1.5px solid #86efac;border-radius:10px;color:#15803d;font-weight:700;font-size:14px;text-align:center;padding:18px 20px;margin:20px 0;letter-spacing:.2px}
 
 /* FLOATING CART */
-.float-cart{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:#1a1740;color:#fff;border:none;cursor:pointer;display:flex;align-items:center;gap:8px;padding:14px 24px;border-radius:50px;font-family:'DM Sans',sans-serif;font-size:14px;font-weight:700;box-shadow:0 8px 30px rgba(26,23,64,.4);z-index:100;white-space:nowrap;animation:floatIn .3s ease;transition:transform .2s,box-shadow .2s;max-width:calc(100vw - 32px)}
-.float-cart:hover{transform:translateX(-50%) translateY(-2px);box-shadow:0 12px 36px rgba(26,23,64,.5)}
-@media(max-width:480px){.float-cart{padding:12px 18px;font-size:13px;bottom:16px;gap:6px}}
-.float-cart-sep{opacity:.4}
-@keyframes floatIn{from{opacity:0;transform:translateX(-50%) translateY(12px)}to{opacity:1;transform:translateX(-50%) translateY(0)}}
+.float-cart{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:linear-gradient(135deg,#3b82f6,#2563eb);color:#fff;border:none;cursor:pointer;display:flex;align-items:center;gap:12px;padding:12px 18px;border-radius:50px;font-family:'DM Sans',sans-serif;font-weight:700;box-shadow:0 8px 32px rgba(59,130,246,.35);z-index:50;white-space:nowrap;animation:floatIn .3s ease;transition:all .25s cubic-bezier(.34,.1,.68,1);max-width:calc(100vw - 32px);pointer-events:auto}
+.float-cart:hover{transform:translateX(-50%) translateY(-4px);box-shadow:0 12px 40px rgba(59,130,246,.4)}
+.float-cart:active{transform:translateX(-50%) translateY(-2px)}
+.float-cart.cart-pulse{animation:cartPulse .6s cubic-bezier(.34,.1,.68,1)}
+@keyframes cartPulse{0%{transform:translateX(-50%) scale(1)}50%{transform:translateX(-50%) scale(1.08)}100%{transform:translateX(-50%) scale(1)}}
 
-/* FOOTER */
-.footer{background:#1e293b;border-top:1px solid rgba(255,255,255,.06)}
-.footer-inner{display:flex;flex-direction:column;align-items:center;gap:8px;padding:32px clamp(16px,3vw,40px);text-align:center}
-.footer-brand{display:flex;align-items:center;gap:10px}
-.logo-mark-sm{width:24px;height:24px;border-radius:4px;background:#c9a84c;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:11px;color:#1a1740;font-family:'DM Sans',sans-serif}
-.footer-sub{font-size:12px;color:rgba(255,255,255,.4)}
+.float-cart-icon-badge{position:relative;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.cart-badge{position:absolute;top:-8px;right:-8px;background:#ff3b30;color:#fff;font-size:10px;font-weight:900;padding:2px 6px;border-radius:12px;min-width:20px;text-align:center;border:2px solid rgba(59,130,246)}
+.float-cart-content{display:flex;flex-direction:column;gap:2px;min-width:60px}
+.cart-qty-text{font-size:13px;font-weight:800;letter-spacing:-.3px}
+.cart-amount-text{font-size:14px;font-weight:950;background:linear-gradient(90deg,#fff,#e0e7ff);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
 
-/* Mobile responsive */
-@media(max-width:640px){
-  .hero-art{display:none}
-  .uh-pin-bar-inner{flex-direction:column;align-items:flex-start;gap:8px}
-  .uh-pin-bar-right{width:100%;justify-content:space-between}
-  .hero-sub{font-size:13px;margin-bottom:18px}
+.float-cart-meta{display:flex;flex-direction:column;gap:2px;font-size:10px;opacity:.85}
+.cart-savings{background:rgba(34,197,94,.2);padding:2px 6px;border-radius:4px;font-weight:800;color:#dcfce7}
+.cart-delivery{background:rgba(59,130,246,.2);padding:2px 6px;border-radius:4px;font-weight:700;color:#bfdbfe}
+
+.cart-chevron{opacity:.7;transition:transform .25s}
+.float-cart:hover .cart-chevron{transform:translateX(2px)}
+
+@keyframes floatIn{from{opacity:0;transform:translateX(-50%) translateY(20px)}to{opacity:1;transform:translateX(-50%) translateY(0)}}
+
+@media(max-width:768px){
+  .float-cart{gap:10px;padding:11px 14px}
+  .cart-amount-text{font-size:13px}
+  .float-cart-meta{gap:1px;font-size:9px}
 }
 @media(max-width:480px){
-  .hero-title{font-size:clamp(22px,6vw,28px)!important}
-  .pin-inp{font-size:14px;padding:11px 14px 11px 34px}
-  .pin-btn{padding:11px 18px;font-size:12px}
-  .section-title{font-size:14px}
+  .float-cart{gap:8px;padding:10px 12px;font-size:12px;bottom:16px;border-radius:40px}
+  .float-cart-content{min-width:50px}
+  .cart-qty-text{font-size:12px}
+  .cart-amount-text{font-size:13px}
+  .float-cart-meta{display:none}
+  .cart-badge{font-size:9px;padding:1px 4px}
+}
+
+/* FOOTER */
+.footer{background:linear-gradient(135deg,#111827,#1f2937);border-top:2px solid rgba(59,130,246,.1);margin-top:60px;position:relative;z-index:20;padding-bottom:100px}
+.footer-main{padding:48px clamp(16px,4vw,48px)}
+
+/* Footer Top - Brand & Newsletter */
+.footer-top{display:grid;grid-template-columns:1fr 1fr;gap:40px;margin-bottom:40px;align-items:start}
+.footer-brand-sec{max-width:380px}
+.footer-brand{display:flex;align-items:flex-start;gap:12px;margin-bottom:8px}
+.logo-mark-sm{width:32px;height:32px;border-radius:8px;background:linear-gradient(135deg,#3b82f6,#2563eb);display:flex;align-items:center;justify-content:center;font-weight:900;font-size:13px;color:#fff;font-family:'DM Sans',sans-serif;flex-shrink:0}
+
+.footer-newsletter h4{margin:0 0 8px 0}
+.footer-newsletter input::placeholder{color:rgba(255,255,255,.4)}
+.footer-newsletter input:focus{outline:none;border-color:#3b82f6;background:rgba(59,130,246,.1)}
+
+/* Footer Links Grid */
+.footer-links-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:32px;margin-bottom:24px}
+.footer-section h5{margin:0 0 12px 0}
+.footer-section ul li{line-height:2.2}
+
+/* Footer Bottom */
+.footer-bottom{display:flex;align-items:center;justify-content:space-between;padding-top:24px;border-top:1px solid rgba(255,255,255,.05)}
+
+@media(max-width:1024px){
+  .footer-links-grid{grid-template-columns:repeat(2,1fr);gap:24px}
+}
+@media(max-width:768px){
+  .footer-top{grid-template-columns:1fr;gap:24px}
+  .footer-links-grid{grid-template-columns:1fr 1fr;gap:20px}
+  .footer-bottom{flex-direction:column;gap:16px;align-items:flex-start;text-align:center}
+  .footer-main{padding:36px clamp(16px,4vw,32px)}
+}
+@media(max-width:480px){
+  .footer-top{margin-bottom:28px}
+  .footer-links-grid{grid-template-columns:1fr;gap:16px;margin-bottom:18px}
+  .footer-section h5{font-size:11px;margin-bottom:10px}
+  .footer-section ul li{line-height:1.8;font-size:12px}
+  .footer-newsletter{width:100%}
+  .footer-newsletter button{width:100%}
+  .footer-bottom{font-size:11px;gap:12px}
+}
+
+/* Mobile responsive */
+@media(max-width:768px){
+  .hero-art{display:none}
+  .uh-pin-bar-inner{flex-direction:column;align-items:stretch;gap:10px}
+  .uh-pin-bar-right{width:100%;justify-content:space-between}
+  .hero-inner{flex-direction:column;gap:32px}
+  .pin-row{flex-direction:column}
+  .pin-inp-wrap{width:100%}
+}
+@media(max-width:480px){
+  .hero-title{font-size:clamp(24px,6vw,32px)}
+  .pin-inp{font-size:14px;padding:11px 14px 11px 36px}
+  .pin-btn{padding:11px 16px;font-size:12px}
+  .section-title{font-size:16px}
   .vendor-name{font-size:13px}
+  .uh-pin-bar-inner{gap:8px;padding:10px 0}
+  .hero-sub{font-size:14px;margin-bottom:20px}
 }
 `;
 

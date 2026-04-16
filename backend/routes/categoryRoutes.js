@@ -1,11 +1,11 @@
 import express from "express";
 import {
-    getActiveCategories,
-    getAllCategories,
-    getSingleCategory,
-    createCategory,
-    updateCategory,
-    deleteCategory,
+   getActiveCategories,
+   getAllCategories,
+   getSingleCategory,
+   createCategory,
+   updateCategory,
+   deleteCategory,
 } from "../controllers/categoryController.js";
 import { protect, adminOnly } from "../middlewares/authMiddleware.js";
 import upload from "../middlewares/upload.middleware.js";
@@ -29,6 +29,6 @@ router.delete("/:id", protect, adminOnly, deleteCategory);
 /* ─────────────────────────────────────────────
    DYNAMIC ROUTE — sabse baad mein
 ───────────────────────────────────────────── */
-router.get("/:id", getSingleCategory);  // ✅ dynamic baad mein
+router.get("/:slug", getSingleCategory);  // ✅ No mongoose auto ObjectId cast
 
 export default router;

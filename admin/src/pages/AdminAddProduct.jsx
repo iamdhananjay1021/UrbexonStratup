@@ -398,30 +398,45 @@ const AdminAddProduct = () => {
                 }
             }
 
-            await api.post("/products/admin", fd);
+            const response = await api.post("/products/admin", fd);
+            console.log("[AdminAddProduct] ✅ Product created:", response.data?.product?._id);
             showToast("success", "Product published successfully!");
             setTimeout(() => navigate("/admin/products"), 1400);
 
         } catch (err) {
-            console.error("[AdminAddProduct] 400 body:", err.response?.data);
+            console.error("[AdminAddProduct] ❌ Error:", err);
+            console.error("[AdminAddProduct] Response data:", err.response?.data);
 
-            const apiErrors = err.response?.data?.errors;
+            const respData = err.response?.data || {};
+            const apiErrors = respData.errors;
 
-            if (Array.isArray(apiErrors) && apiErrors.length) {
-                const mapped = {};
-                apiErrors.forEach(({ field, message }) => { if (field) mapped[field] = message; });
+            // Check for image upload errors
+            if (apiErrors && Array.isArray(apiErrors)) {
+                const imgErrs = apiErrors.filter((e) => {
+                    const str = typeof e === 'string' ? e : e.message || '';
+                    return str.toLowerCase().includes('image');
+                });
 
-                if (Object.keys(mapped).length) {
-                    setFErrs(mapped);
-                    const firstTab = FIELD_TAB[Object.keys(mapped)[0]];
-                    if (firstTab) setTab(firstTab);
-                    setTopErr(`Server rejected ${apiErrors.length} field(s): ${apiErrors.map(e => e.field || e.message).join(", ")}`);
+                if (imgErrs.length > 0) {
+                    const imgMsg = imgErrs.map(e => typeof e === 'string' ? e : e.message).join(" | ");
+                    setFErrs({ images: imgMsg });
+                    setTab("images");
+                    setTopErr(`🖼️ ${imgMsg}`);
                 } else {
-                    /* root-level Zod error (path=[]) */
-                    setTopErr(`Validation error: ${apiErrors.map(e => e.message).join(", ")}`);
+                    const mapped = {};
+                    apiErrors.forEach(({ field, message }) => { if (field) mapped[field] = message; });
+
+                    if (Object.keys(mapped).length) {
+                        setFErrs(mapped);
+                        const firstTab = FIELD_TAB[Object.keys(mapped)[0]];
+                        if (firstTab) setTab(firstTab);
+                        setTopErr(`Server rejected ${apiErrors.length} field(s): ${apiErrors.map(e => e.field || e.message).join(", ")}`);
+                    } else {
+                        setTopErr(`Validation error: ${apiErrors.map(e => e.message).join(", ")}`);
+                    }
                 }
             } else {
-                setTopErr(err.response?.data?.message || "Failed to publish. Please try again.");
+                setTopErr(respData.message || err.response?.data?.message || "Failed to publish. Please try again.");
             }
         } finally {
             setLoading(false);

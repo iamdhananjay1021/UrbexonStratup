@@ -18,6 +18,11 @@ import {
     adminCreateProduct,
     adminUpdateProduct,
     adminDeleteProduct,
+    adminGetDealableProducts,
+    adminCreateOrUpdateDeal,
+    adminRemoveDeal,
+    adminGetFlashDealsMetrics,
+    adminRefreshFlashDeals,
     vendorGetMyProducts,
     vendorCreateProduct,
     vendorUpdateProduct,
@@ -43,6 +48,21 @@ const upload = multer({
         cb(null, true);
     },
 });
+
+/* ───────────────────────────────────────────────
+   🔍 FILE LOGGING MIDDLEWARE (DEBUGGING)
+─────────────────────────────────────────────── */
+const logFiles = (req, res, next) => {
+    if (req.files && req.files.length > 0) {
+        console.log(`[🖼️ Files Parsed] ${req.files.length} file(s):`);
+        req.files.forEach((f, i) => {
+            console.log(`  [${i + 1}] ${f.originalname || 'unknown'} - ${f.mimetype} - ${f.size} bytes - Buffer: ${f.buffer ? '✅' : '❌'}`);
+        });
+    } else {
+        console.log(`[🖼️ Files Parsed] No files received. req.files: ${typeof req.files}`);
+    }
+    next();
+};
 
 /* ───────────────────────────────────────────────
    🚫 RATE LIMITING (WRITE APIs)
@@ -80,6 +100,7 @@ router.post(
     adminOnly,
     writeLimiter,
     upload.array("images", 6),
+    logFiles,
     validate(createProductSchema),
     adminCreateProduct
 );
@@ -90,6 +111,7 @@ router.put(
     adminOnly,
     writeLimiter,
     upload.array("images", 6),
+    logFiles,
     validate(updateProductSchema),
     adminUpdateProduct
 );
@@ -134,6 +156,45 @@ router.delete(
     requireApprovedVendor,
     writeLimiter,
     vendorDeleteProduct
+);
+
+/* ── Flash Deals Management Routes ────────────── */
+router.get(
+    "/admin/deals/available-products",
+    protect,
+    adminOnly,
+    adminGetDealableProducts
+);
+
+router.post(
+    "/admin/deals/create",
+    protect,
+    adminOnly,
+    writeLimiter,
+    adminCreateOrUpdateDeal
+);
+
+router.delete(
+    "/admin/deals/:productId",
+    protect,
+    adminOnly,
+    writeLimiter,
+    adminRemoveDeal
+);
+
+router.get(
+    "/admin/deals/metrics",
+    protect,
+    adminOnly,
+    adminGetFlashDealsMetrics
+);
+
+router.post(
+    "/admin/deals/refresh",
+    protect,
+    adminOnly,
+    writeLimiter,
+    adminRefreshFlashDeals
 );
 
 /* ── Dynamic Routes (ALWAYS LAST) ───────────── */
